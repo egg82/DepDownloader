@@ -17,4 +17,9 @@ pipeline {
             }
         }
     }
+	post {
+        always {
+            archiveArtifacts artifacts: 'target/dep-downloader-*.jar', fingerprint: true
+        }
+    }
 }
