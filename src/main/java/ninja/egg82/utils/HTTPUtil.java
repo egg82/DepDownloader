@@ -79,6 +79,7 @@ public class HTTPUtil {
             try {
                 HttpURLConnection conn = getConnection(url);
                 lastStatus = conn.getResponseCode();
+                System.out.println(url + " - " + lastStatus);
                 if (lastStatus >= 200 && lastStatus < 300) {
                     return conn;
                 }

@@ -2,6 +2,7 @@ package ninja.egg82.maven;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.*;
 import java.util.*;
@@ -141,20 +142,27 @@ public class Artifact {
             if (result.snapshot) {
                 String snapshotVersion = MavenUtil.getSnapshotVersion(result);
                 for (String repository : result.repositories) {
-                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + snapshotVersion + ".jar"));
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + snapshotVersion + ".pom"));
+                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(snapshotVersion) + ".jar"));
+                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(snapshotVersion) + ".pom"));
                 }
             } else if (result.release) {
                 String releaseVersion = MavenUtil.getReleaseVersion(result);
                 for (String repository : result.repositories) {
-                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + releaseVersion + ".jar"));
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + releaseVersion + ".pom"));
+                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(releaseVersion) + ".jar"));
+                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(releaseVersion) + ".pom"));
                 }
             } else {
                 for (String repository : result.repositories) {
-                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + result.version + ".jar"));
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + result.version + ".pom"));
+                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.version) + ".jar"));
+                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.version) + ".pom"));
                 }
+            }
+
+            if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(result.pomURIs))) {
+                // Some deps just don't exist any more. Wheee!
+                result.properties = new HashMap<>();
+                result.dependencies = new ArrayList<>();
+                return result;
             }
 
             result.properties = MavenUtil.getProperties(result);
@@ -170,6 +178,8 @@ public class Artifact {
                     .replace("{ARTIFACT}", result.artifactId)
                     .replace("{VERSION}", result.version);
         }
+
+        private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
     }
 
     public void downloadJar(File output) throws IOException {

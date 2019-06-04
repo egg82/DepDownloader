@@ -1,10 +1,13 @@
 package ninja.egg82.maven;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.util.*;
 import javax.xml.xpath.XPathExpressionException;
+import ninja.egg82.utils.HTTPUtil;
 import ninja.egg82.utils.MavenUtil;
 import org.xml.sax.SAXException;
 
@@ -106,17 +109,25 @@ public class ArtifactParent {
             if (result.snapshot) {
                 String snapshotVersion = MavenUtil.getSnapshotVersion(result);
                 for (String repository : result.repositories) {
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + snapshotVersion + ".pom"));
+                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(snapshotVersion) + ".pom"));
                 }
             } else if (result.release) {
                 String releaseVersion = MavenUtil.getReleaseVersion(result);
                 for (String repository : result.repositories) {
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + releaseVersion + ".pom"));
+                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(releaseVersion) + ".pom"));
                 }
             } else {
                 for (String repository : result.repositories) {
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + result.version + "/" + result.artifactId + "-" + result.version + ".pom"));
+                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.version) + ".pom"));
                 }
+            }
+
+            if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(result.pomURIs))) {
+                // Some deps just don't exist any more. Wheee!
+                result.properties = new HashMap<>();
+                result.softDependencies = new ArrayList<>();
+                result.hardDependencies = new ArrayList<>();
+                return result;
             }
 
             result.properties = MavenUtil.getProperties(result);
@@ -127,5 +138,7 @@ public class ArtifactParent {
 
             return result;
         }
+
+        private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
     }
 }
