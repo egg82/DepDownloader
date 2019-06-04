@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
+import javax.xml.xpath.XPathExpressionException;
 import ninja.egg82.utils.MavenUtil;
 import org.xml.sax.SAXException;
 
@@ -29,6 +30,9 @@ public class ArtifactParent {
     private final boolean latest;
     public boolean isLatest() { return latest; }
 
+    private Map<String, String> properties = null;
+    public Map<String, String> getProperties() { return Collections.unmodifiableMap(properties); }
+
     private Set<String> repositories = new LinkedHashSet<>();
     public Set<String> getRepositories() { return Collections.unmodifiableSet(repositories); }
 
@@ -41,8 +45,11 @@ public class ArtifactParent {
     private ArtifactParent parent = null;
     public ArtifactParent getParent() { return parent; }
 
-    private List<Artifact> dependencies = null;
-    public List<Artifact> getDependencies() { return dependencies; }
+    private List<Artifact> softDependencies = null;
+    public List<Artifact> getSoftDependencies() { return softDependencies; }
+
+    private List<Artifact> hardDependencies = null;
+    public List<Artifact> getHardDependencies() { return hardDependencies; }
 
     private ArtifactParent(String groupId, String artifactId, String version) {
         this.groupId = groupId;
@@ -82,7 +89,9 @@ public class ArtifactParent {
             return this;
         }
 
-        public ArtifactParent build() throws URISyntaxException, IOException, SAXException {
+        public ArtifactParent build() throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(Scope.COMPILE, Scope.RUNTIME); }
+
+        public ArtifactParent build(Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
             if (result.release) {
                 String version = MavenUtil.getReleaseVersion(result);
                 result.version = result.snapshot ? version + "-SNAPSHOT" : version;
@@ -110,9 +119,11 @@ public class ArtifactParent {
                 }
             }
 
+            result.properties = MavenUtil.getProperties(result);
             result.parent = MavenUtil.getParent(result);
             result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result));
-            result.dependencies = MavenUtil.getDependencies(result);
+            result.softDependencies = MavenUtil.getSoftDependencies(result, targetDependencyScopes);
+            result.hardDependencies = MavenUtil.getHardDependencies(result, targetDependencyScopes);
 
             return result;
         }

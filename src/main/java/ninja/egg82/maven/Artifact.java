@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.*;
 import java.util.*;
+import javax.xml.xpath.XPathExpressionException;
 import ninja.egg82.utils.DownloadUtil;
 import ninja.egg82.utils.HTTPUtil;
 import ninja.egg82.utils.InjectUtil;
@@ -35,6 +36,9 @@ public class Artifact {
 
     private final boolean latest;
     public boolean isLatest() { return latest; }
+
+    private Map<String, String> properties = null;
+    public Map<String, String> getProperties() { return Collections.unmodifiableMap(properties); }
 
     private Set<String> repositories = new LinkedHashSet<>();
     public Set<String> getRepositories() { return Collections.unmodifiableSet(repositories); }
@@ -110,7 +114,9 @@ public class Artifact {
             return this;
         }
 
-        public Artifact build() throws URISyntaxException, IOException, SAXException {
+        public Artifact build() throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(Scope.COMPILE, Scope.RUNTIME); }
+
+        public Artifact build(Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
             if (result.release) {
                 String version = MavenUtil.getReleaseVersion(result);
                 result.version = result.snapshot ? version + "-SNAPSHOT" : version;
@@ -151,9 +157,10 @@ public class Artifact {
                 }
             }
 
+            result.properties = MavenUtil.getProperties(result);
             result.parent = MavenUtil.getParent(result);
             result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result));
-            result.dependencies = MavenUtil.getDependencies(result);
+            result.dependencies = MavenUtil.getDependencies(result, targetDependencyScopes);
 
             return result;
         }
