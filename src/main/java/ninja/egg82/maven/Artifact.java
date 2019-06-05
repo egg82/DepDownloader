@@ -6,6 +6,8 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.xml.xpath.XPathExpressionException;
 import ninja.egg82.utils.DownloadUtil;
 import ninja.egg82.utils.HTTPUtil;
@@ -14,6 +16,8 @@ import ninja.egg82.utils.MavenUtil;
 import org.xml.sax.SAXException;
 
 public class Artifact {
+    private static ConcurrentMap<String, Artifact> cache = new ConcurrentHashMap<>();
+
     private final String groupId;
     public String getGroupId() { return groupId; }
 
@@ -65,11 +69,15 @@ public class Artifact {
     private List<Artifact> dependencies = null;
     public List<Artifact> getDependencies() { return dependencies; }
 
+    private final int computedHash;
+
     private Artifact(String groupId, String artifactId, String version, Scope scope) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.scope = scope;
         this.version = version;
+
+        computedHash = Objects.hash(groupId, artifactId, version);
 
         snapshot = version.endsWith("-SNAPSHOT") || version.endsWith("-LATEST");
         release = version.equalsIgnoreCase("release");
@@ -118,6 +126,11 @@ public class Artifact {
         public Artifact build() throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(Scope.COMPILE, Scope.RUNTIME); }
 
         public Artifact build(Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+            Artifact cachedResult = cache.putIfAbsent(result.toString(), result);
+            if (result.equals(cachedResult)) {
+                return result.scope == cachedResult.scope ? cachedResult : copyArtifact(cachedResult, result.scope);
+            }
+
             if (result.release) {
                 String version = MavenUtil.getReleaseVersion(result);
                 result.version = result.snapshot ? version + "-SNAPSHOT" : version;
@@ -180,6 +193,21 @@ public class Artifact {
         }
 
         private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
+
+        private Artifact copyArtifact(Artifact artifact, Scope newScope) {
+            Artifact retVal = new Artifact(artifact.groupId, artifact.artifactId, artifact.version, newScope);
+            retVal.strippedVersion = artifact.strippedVersion;
+            retVal.properties = artifact.properties;
+            retVal.repositories = artifact.repositories;
+            retVal.declaredRepositories = artifact.declaredRepositories;
+            retVal.rawDirectJarURIs = artifact.rawDirectJarURIs;
+            retVal.directJarURIs = artifact.directJarURIs;
+            retVal.jarURIs = artifact.jarURIs;
+            retVal.pomURIs = artifact.pomURIs;
+            retVal.parent = artifact.parent;
+            retVal.dependencies = artifact.dependencies;
+            return retVal;
+        }
     }
 
     public void downloadJar(File output) throws IOException {
@@ -199,4 +227,19 @@ public class Artifact {
     public void injectJar(File output, URLClassLoader classLoader) throws IOException, IllegalAccessException, InvocationTargetException {
         InjectUtil.injectFile(DownloadUtil.getOrDownloadFile(output, HTTPUtil.toURLs(jarURIs)), classLoader);
     }
+
+    public String toString() { return groupId + ":" + artifactId + ":" + version; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Artifact artifact = (Artifact) o;
+        return groupId.equals(artifact.groupId) &&
+                artifactId.equals(artifact.artifactId) &&
+                version.equals(artifact.version);
+    }
+
+    @Override
+    public int hashCode() { return computedHash; }
 }

@@ -6,12 +6,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.xml.xpath.XPathExpressionException;
 import ninja.egg82.utils.HTTPUtil;
 import ninja.egg82.utils.MavenUtil;
 import org.xml.sax.SAXException;
 
 public class ArtifactParent {
+    private static ConcurrentMap<String, ArtifactParent> cache = new ConcurrentHashMap<>();
+
     private final String groupId;
     public String getGroupId() { return groupId; }
 
@@ -54,10 +58,14 @@ public class ArtifactParent {
     private List<Artifact> hardDependencies = null;
     public List<Artifact> getHardDependencies() { return hardDependencies; }
 
+    private final int computedHash;
+
     private ArtifactParent(String groupId, String artifactId, String version) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
+
+        computedHash = Objects.hash(groupId, artifactId, version);
 
         snapshot = version.endsWith("-SNAPSHOT") || version.endsWith("-LATEST");
         release = version.equalsIgnoreCase("release");
@@ -95,6 +103,11 @@ public class ArtifactParent {
         public ArtifactParent build() throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(Scope.COMPILE, Scope.RUNTIME); }
 
         public ArtifactParent build(Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+            ArtifactParent cachedResult = cache.putIfAbsent(result.toString(), result);
+            if (result.equals(cachedResult)) {
+                return cachedResult;
+            }
+
             if (result.release) {
                 String version = MavenUtil.getReleaseVersion(result);
                 result.version = result.snapshot ? version + "-SNAPSHOT" : version;
@@ -141,4 +154,19 @@ public class ArtifactParent {
 
         private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
     }
+
+    public String toString() { return groupId + ":" + artifactId + ":" + version; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ArtifactParent parent = (ArtifactParent) o;
+        return groupId.equals(parent.groupId) &&
+                artifactId.equals(parent.artifactId) &&
+                version.equals(parent.version);
+    }
+
+    @Override
+    public int hashCode() { return computedHash; }
 }

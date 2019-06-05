@@ -189,7 +189,7 @@ public class MavenUtil {
             if (version == null && parent != null) {
                 ArtifactParent p = parent;
                 while (p != null) {
-                    for (Artifact dependency : parent.getSoftDependencies()) {
+                    for (Artifact dependency : p.getSoftDependencies()) {
                         if (
                                 dependency.getGroupId().equals(groupId)
                                 && dependency.getArtifactId().equals(artifactId)
