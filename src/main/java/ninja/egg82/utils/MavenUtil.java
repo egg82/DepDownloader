@@ -381,6 +381,10 @@ public class MavenUtil {
         artifactId = fillPlaceholders(artifactId, parent, properties);
         version = fillPlaceholders(version, parent, properties);
 
+        System.out.println("Group: " + groupId);
+        System.out.println("Artifact: " + artifactId);
+        System.out.println("Version: " + version);
+
         if (groupId == null || artifactId == null || version == null) {
             throw new SAXException("Could not get parent from pom.");
         }

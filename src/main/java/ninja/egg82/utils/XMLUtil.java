@@ -15,6 +15,7 @@ public class XMLUtil {
     static {
         DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
         builderFactory.setIgnoringElementContentWhitespace(true);
+        builderFactory.setIgnoringComments(true);
 
         try {
             builder = builderFactory.newDocumentBuilder();

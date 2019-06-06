@@ -41,6 +41,19 @@ public class ArtifactTests {
         });
     }
 
+    @Test
+    public void testGetSnapshot() {
+        Assertions.assertDoesNotThrow(() -> {
+            Artifact acfCore = Artifact.builder("co.aikar", "acf-core", "0.5.0-SNAPSHOT")
+                    .addRepository("https://nexus.egg82.me/repository/aikar/")
+                    .addRepository("https://repo.aikar.co/nexus/content/groups/aikar/")
+                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .build(new File(getCurrentDirectory(), "cache"), 1);
+
+            System.out.println("ACF Core version: " + acfCore.getVersion());
+        });
+    }
+
     private File getCurrentDirectory() throws URISyntaxException {
         return new File(getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).getParentFile();
     }
