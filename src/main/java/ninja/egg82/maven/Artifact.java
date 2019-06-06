@@ -69,6 +69,9 @@ public class Artifact {
     private List<Artifact> dependencies = null;
     public List<Artifact> getDependencies() { return dependencies; }
 
+    private Scope[] dependencyScopes = null;
+    private boolean finalDepth = false;
+
     private final int computedHash;
 
     private Artifact(String groupId, String artifactId, String version, Scope scope) {
@@ -123,12 +126,27 @@ public class Artifact {
             return this;
         }
 
-        public Artifact build() throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(Scope.COMPILE, Scope.RUNTIME); }
+        public Artifact build(File cacheDir, int depth) throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(cacheDir, depth, Scope.COMPILE, Scope.RUNTIME); }
 
-        public Artifact build(Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        public Artifact build(File cacheDir, int depth, Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+            if (cacheDir == null) {
+                throw new IllegalArgumentException("cacheDir cannot be null.");
+            }
+            DownloadUtil.createDirectory(cacheDir);
+
+            if (depth == 0) {
+                result.finalDepth = true;
+            }
+            result.dependencyScopes = targetDependencyScopes;
+
             Artifact cachedResult = cache.putIfAbsent(result.toString(), result);
             if (result.equals(cachedResult)) {
-                return result.scope == cachedResult.scope ? cachedResult : copyArtifact(cachedResult, result.scope);
+                if (!scopesEqual(targetDependencyScopes, cachedResult.dependencyScopes) || (!result.finalDepth && cachedResult.finalDepth)) {
+                    cache.put(result.toString(), result);
+                } else {
+                    System.out.println("Returning cached result for " + result.groupId + ":" + result.artifactId + "::" + result.version);
+                    return result.scope == cachedResult.scope ? cachedResult : copyArtifact(cachedResult, result.scope);
+                }
             }
 
             if (result.release) {
@@ -178,10 +196,18 @@ public class Artifact {
                 return result;
             }
 
-            result.properties = MavenUtil.getProperties(result);
-            result.parent = MavenUtil.getParent(result);
-            result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result));
-            result.dependencies = MavenUtil.getDependencies(result, targetDependencyScopes);
+            result.properties = MavenUtil.getProperties(result, cacheDir);
+            result.properties.put("project.groupId", result.groupId);
+            result.properties.put("project.artifactId", result.artifactId);
+            result.properties.put("project.version", result.version);
+            result.properties.put("project.scope", result.scope.getName());
+            result.properties.put("pom.groupId", result.groupId);
+            result.properties.put("pom.artifactId", result.artifactId);
+            result.properties.put("pom.version", result.version);
+            result.properties.put("pom.scope", result.scope.getName());
+            result.parent = MavenUtil.getParent(result, cacheDir, (depth == -1) ? depth : 1);
+            result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result, cacheDir));
+            result.dependencies = (depth == 0) ? new ArrayList<>() : MavenUtil.getDependencies(result, cacheDir, Math.max(depth - 1, -1), targetDependencyScopes);
 
             return result;
         }
@@ -207,6 +233,18 @@ public class Artifact {
             retVal.parent = artifact.parent;
             retVal.dependencies = artifact.dependencies;
             return retVal;
+        }
+
+        private boolean scopesEqual(Scope[] scopes1, Scope[] scopes2) {
+            if (scopes1.length != scopes2.length) {
+                return false;
+            }
+            for (int i = 0; i < scopes1.length; i++) {
+                if (scopes1[i] != scopes2[i]) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 

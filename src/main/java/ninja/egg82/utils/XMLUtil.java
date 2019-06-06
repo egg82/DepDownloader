@@ -26,14 +26,26 @@ public class XMLUtil {
 
     private XMLUtil() {}
 
-    public static Document getDocument(File file) throws IOException, SAXException {
-        Document retVal = builder.parse(file);
+    public static Document getDocument(File file) throws IOException {
+        Document retVal;
+        try {
+            retVal = builder.parse(file);
+        } catch (SAXException ignored) {
+            // I have no idea why some pom files aren't XML, but this is where we are.
+            retVal = builder.newDocument();
+        }
         retVal.normalizeDocument();
         return retVal;
     }
 
-    public static Document getDocument(InputStream stream) throws IOException, SAXException {
-        Document retVal = builder.parse(stream);
+    public static Document getDocument(InputStream stream) throws IOException {
+        Document retVal;
+        try {
+            retVal = builder.parse(stream);
+        } catch (SAXException ignored) {
+            // I have no idea why some pom files aren't XML, but this is where we are.
+            retVal = builder.newDocument();
+        }
         retVal.normalizeDocument();
         return retVal;
     }

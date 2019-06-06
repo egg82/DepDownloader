@@ -1,5 +1,6 @@
 package ninja.egg82.utils;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -14,7 +15,6 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 
 public class DocumentUtil {
     private static Map<URI, Document> documentCache = new HashMap<>();
@@ -28,7 +28,7 @@ public class DocumentUtil {
         return (NodeList) xp.evaluate(xPath, document, XPathConstants.NODESET);
     }
 
-    public static synchronized Document getDocument(List<URL> urls) throws IOException, XPathExpressionException, SAXException {
+    public static synchronized Document getDocument(List<URL> urls) throws IOException {
         for (URL url : urls) {
             Document retVal = documentCache.get(toURI(url));
             if (retVal != null) {
@@ -43,6 +43,18 @@ public class DocumentUtil {
             }
             return doc;
         }
+    }
+
+    public static synchronized Document getDocument(File file) throws IOException {
+        URI uri = file.toURI();
+        Document retVal = documentCache.get(uri);
+        if (retVal != null) {
+            return retVal;
+        }
+
+        Document doc = XMLUtil.getDocument(file);
+        documentCache.put(uri, doc);
+        return doc;
     }
 
     private static URI toURI(URL url) throws IOException {

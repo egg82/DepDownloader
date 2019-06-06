@@ -88,7 +88,7 @@ public class HTTPUtil {
             }
         }
         if (lastEx != null) {
-            throw lastEx;
+            throw new IOException("Could not get connection from URLs provided.", lastEx);
         }
 
         if (lastStatus >= 400 && lastStatus < 600) {
@@ -97,26 +97,15 @@ public class HTTPUtil {
         throw new IOException("Could not get connection from URLs provided.");
     }
 
-    public static boolean remoteExists(List<URL> urls) throws IOException {
-        IOException lastEx = null;
-        int lastStatus = -1;
+    public static boolean remoteExists(List<URL> urls) {
         for (URL url : urls) {
             try {
                 HttpURLConnection conn = getConnection(url);
-                lastStatus = conn.getResponseCode();
-                if (lastStatus >= 200 && lastStatus < 300) {
+                int status = conn.getResponseCode();
+                if (status >= 200 && status < 300) {
                     return true;
                 }
-            } catch (IOException ex) {
-                lastEx = ex;
-            }
-        }
-        if (lastEx != null) {
-            throw lastEx;
-        }
-
-        if (lastStatus >= 500 && lastStatus < 600) {
-            throw new IOException("Server returned status code " + lastStatus);
+            } catch (IOException ignored) { }
         }
 
         return false;

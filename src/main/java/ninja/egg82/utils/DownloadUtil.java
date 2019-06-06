@@ -14,20 +14,20 @@ public class DownloadUtil {
             Files.delete(output.toPath());
         }
 
+        createDirectory(output.getParentFile());
+
         if (!output.exists()) {
             IOException lastEx = null;
-            boolean good = false;
             for (URL url : urls) {
                 try {
                     HTTPUtil.downloadFile(url, output);
-                    good = true;
-                    break;
+                    return output;
                 } catch (IOException ex) {
                     lastEx = ex;
                 }
             }
-            if (!good && lastEx != null) {
-                throw lastEx;
+            if (lastEx != null) {
+                throw new IOException("Could not download file from URLs provided.", lastEx);
             }
         }
 
@@ -43,5 +43,33 @@ public class DownloadUtil {
             return !file.isDirectory();
         }
         return false;
+    }
+
+    public static boolean hasDirectory(File file) {
+        if (file == null) {
+            return false;
+        }
+
+        if (file.exists()) {
+            return file.isDirectory();
+        }
+        return false;
+    }
+
+    public static void createDirectory(File file) throws IOException {
+        if (file == null) {
+            throw new IllegalArgumentException("file cannot be null.");
+        }
+
+        if (file.exists()) {
+            if (!file.isDirectory()) {
+                Files.delete(file.toPath());
+            } else {
+                return;
+            }
+        }
+        if (!file.mkdirs()) {
+            throw new IOException("Could not create directory structure.");
+        }
     }
 }

@@ -1,5 +1,6 @@
 package ninja.egg82.maven;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -9,6 +10,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.xml.xpath.XPathExpressionException;
+import ninja.egg82.utils.DownloadUtil;
 import ninja.egg82.utils.HTTPUtil;
 import ninja.egg82.utils.MavenUtil;
 import org.xml.sax.SAXException;
@@ -58,6 +60,9 @@ public class ArtifactParent {
     private List<Artifact> hardDependencies = null;
     public List<Artifact> getHardDependencies() { return hardDependencies; }
 
+    private Scope[] dependencyScopes = null;
+    private boolean finalDepth = false;
+
     private final int computedHash;
 
     private ArtifactParent(String groupId, String artifactId, String version) {
@@ -100,12 +105,27 @@ public class ArtifactParent {
             return this;
         }
 
-        public ArtifactParent build() throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(Scope.COMPILE, Scope.RUNTIME); }
+        public ArtifactParent build(File cacheDir, int depth) throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(cacheDir, depth, Scope.COMPILE, Scope.RUNTIME); }
 
-        public ArtifactParent build(Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        public ArtifactParent build(File cacheDir, int depth, Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+            if (cacheDir == null) {
+                throw new IllegalArgumentException("cacheDir cannot be null.");
+            }
+            DownloadUtil.createDirectory(cacheDir);
+
+            if (depth == 0) {
+                result.finalDepth = true;
+            }
+            result.dependencyScopes = targetDependencyScopes;
+
             ArtifactParent cachedResult = cache.putIfAbsent(result.toString(), result);
             if (result.equals(cachedResult)) {
-                return cachedResult;
+                if (!scopesEqual(targetDependencyScopes, cachedResult.dependencyScopes) || (!result.finalDepth && cachedResult.finalDepth)) {
+                    cache.put(result.toString(), result);
+                } else {
+                    System.out.println("Returning cached result for " + result.groupId + ":" + result.artifactId + "::" + result.version);
+                    return cachedResult;
+                }
             }
 
             if (result.release) {
@@ -143,16 +163,34 @@ public class ArtifactParent {
                 return result;
             }
 
-            result.properties = MavenUtil.getProperties(result);
-            result.parent = MavenUtil.getParent(result);
-            result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result));
-            result.softDependencies = MavenUtil.getSoftDependencies(result, targetDependencyScopes);
-            result.hardDependencies = MavenUtil.getHardDependencies(result, targetDependencyScopes);
+            result.properties = MavenUtil.getProperties(result, cacheDir);
+            result.properties.put("project.groupId", result.groupId);
+            result.properties.put("project.artifactId", result.artifactId);
+            result.properties.put("project.version", result.version);
+            result.properties.put("pom.groupId", result.groupId);
+            result.properties.put("pom.artifactId", result.artifactId);
+            result.properties.put("pom.version", result.version);
+            result.parent = MavenUtil.getParent(result, cacheDir, (depth == -1) ? depth : 1);
+            result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result, cacheDir));
+            result.softDependencies = (depth == 0) ? new ArrayList<>() : MavenUtil.getSoftDependencies(result, cacheDir, Math.max(depth - 1, -1), targetDependencyScopes);
+            result.hardDependencies = (depth == 0) ? new ArrayList<>() : MavenUtil.getHardDependencies(result, cacheDir, Math.max(depth - 1, -1), targetDependencyScopes);
 
             return result;
         }
 
         private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
+
+        private boolean scopesEqual(Scope[] scopes1, Scope[] scopes2) {
+            if (scopes1.length != scopes2.length) {
+                return false;
+            }
+            for (int i = 0; i < scopes1.length; i++) {
+                if (scopes1[i] != scopes2[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 
     public String toString() { return groupId + ":" + artifactId + ":" + version; }
