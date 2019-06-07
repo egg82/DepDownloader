@@ -30,6 +30,9 @@ public class ArtifactParent {
     private String strippedVersion;
     public String getStrippedVersion() { return strippedVersion; }
 
+    private String realVersion;
+    public String getRealVersion() { return realVersion; }
+
     private final boolean snapshot;
     public boolean isSnapshot() { return snapshot; }
 
@@ -81,6 +84,8 @@ public class ArtifactParent {
         } else {
             strippedVersion = version;
         }
+
+        realVersion = strippedVersion;
     }
 
     public static Builder builder(String groupId, String artifactId, String version) { return new Builder(groupId, artifactId, version); }
@@ -128,31 +133,24 @@ public class ArtifactParent {
                 }
             }
 
-            if (result.release) {
+            if (result.snapshot) {
+                String version = MavenUtil.getSnapshotVersion(result);
+                result.realVersion = version;
+            } else if (result.release) {
                 String version = MavenUtil.getReleaseVersion(result);
                 result.version = result.snapshot ? version + "-SNAPSHOT" : version;
                 result.strippedVersion = version;
+                result.realVersion = version;
             } else if (result.latest) {
                 String version = MavenUtil.getLatestVersion(result);
                 result.version = result.snapshot ? version + "-SNAPSHOT" : version;
                 result.strippedVersion = version;
+                result.realVersion = version;
             }
 
             String group = result.groupId.replace('.', '/');
-            if (result.snapshot) {
-                String snapshotVersion = MavenUtil.getSnapshotVersion(result);
-                for (String repository : result.repositories) {
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(snapshotVersion) + ".pom"));
-                }
-            } else if (result.release) {
-                String releaseVersion = MavenUtil.getReleaseVersion(result);
-                for (String repository : result.repositories) {
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(releaseVersion) + ".pom"));
-                }
-            } else {
-                for (String repository : result.repositories) {
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.version) + ".pom"));
-                }
+            for (String repository : result.repositories) {
+                result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.realVersion) + ".pom"));
             }
 
             if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(result.pomURIs))) {

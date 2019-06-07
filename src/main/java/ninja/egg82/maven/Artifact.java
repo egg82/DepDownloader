@@ -33,6 +33,9 @@ public class Artifact {
     private String strippedVersion;
     public String getStrippedVersion() { return strippedVersion; }
 
+    private String realVersion;
+    public String getRealVersion() { return realVersion; }
+
     private final boolean snapshot;
     public boolean isSnapshot() { return snapshot; }
 
@@ -91,6 +94,8 @@ public class Artifact {
         } else {
             strippedVersion = version;
         }
+
+        realVersion = strippedVersion;
     }
 
     public static Builder builder(String groupId, String artifactId, String version) { return new Builder(groupId, artifactId, version, Scope.COMPILE); }
@@ -149,14 +154,19 @@ public class Artifact {
                 }
             }
 
-            if (result.release) {
+            if (result.snapshot) {
+                String version = MavenUtil.getSnapshotVersion(result);
+                result.realVersion = version;
+            } else if (result.release) {
                 String version = MavenUtil.getReleaseVersion(result);
                 result.version = result.snapshot ? version + "-SNAPSHOT" : version;
                 result.strippedVersion = version;
+                result.realVersion = version;
             } else if (result.latest) {
                 String version = MavenUtil.getLatestVersion(result);
                 result.version = result.snapshot ? version + "-SNAPSHOT" : version;
                 result.strippedVersion = version;
+                result.realVersion = version;
             }
 
             for (String url : result.rawDirectJarURIs) {
@@ -170,23 +180,9 @@ public class Artifact {
             result.jarURIs.addAll(result.directJarURIs);
 
             String group = result.groupId.replace('.', '/');
-            if (result.snapshot) {
-                String snapshotVersion = MavenUtil.getSnapshotVersion(result);
-                for (String repository : result.repositories) {
-                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(snapshotVersion) + ".jar"));
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(snapshotVersion) + ".pom"));
-                }
-            } else if (result.release) {
-                String releaseVersion = MavenUtil.getReleaseVersion(result);
-                for (String repository : result.repositories) {
-                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(releaseVersion) + ".jar"));
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(releaseVersion) + ".pom"));
-                }
-            } else {
-                for (String repository : result.repositories) {
-                    result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.version) + ".jar"));
-                    result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.version) + ".pom"));
-                }
+            for (String repository : result.repositories) {
+                result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.realVersion) + ".jar"));
+                result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.realVersion) + ".pom"));
             }
 
             if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(result.pomURIs))) {
