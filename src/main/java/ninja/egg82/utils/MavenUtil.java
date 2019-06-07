@@ -21,13 +21,11 @@ public class MavenUtil {
     private MavenUtil() {}
 
     public static Map<String, String> getProperties(Artifact artifact, File cacheDir) throws IOException, XPathExpressionException {
-        System.out.println("Getting properties for " + artifact.getGroupId() + ":" + artifact.getArtifactId() + "::" + artifact.getVersion());
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
         return fetchProperties(DocumentUtil.getDocument(pomFile));
     }
 
     public static Map<String, String> getProperties(ArtifactParent parent, File cacheDir) throws IOException, XPathExpressionException {
-        System.out.println("Getting properties for " + parent.getGroupId() + ":" + parent.getArtifactId() + "::" + parent.getVersion());
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
         return fetchProperties(DocumentUtil.getDocument(pomFile));
     }
@@ -63,8 +61,6 @@ public class MavenUtil {
     }
 
     public static List<Artifact> getDependencies(Artifact artifact, File cacheDir, int depth, Scope[] targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting deps for " + artifact.getGroupId() + ":" + artifact.getArtifactId() + "::" + artifact.getVersion());
-
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
 
         Set<String> repositories = getRepositories(artifact);
@@ -89,8 +85,6 @@ public class MavenUtil {
     }
 
     public static List<Artifact> getSoftDependencies(ArtifactParent parent, File cacheDir, int depth, Scope[] targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting soft deps for " + parent.getGroupId() + ":" + parent.getArtifactId() + "::" + parent.getVersion());
-
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
 
         Set<String> repositories = getRepositories(parent);
@@ -108,8 +102,6 @@ public class MavenUtil {
     }
 
     public static List<Artifact> getHardDependencies(ArtifactParent parent, File cacheDir, int depth, Scope[] targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting hard deps for " + parent.getGroupId() + ":" + parent.getArtifactId() + "::" + parent.getVersion());
-
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
 
         Set<String> repositories = getRepositories(parent);
@@ -160,8 +152,6 @@ public class MavenUtil {
 
     private static List<Artifact.Builder> fetchDependencies(ArtifactParent parent, NodeList dependencyNodes, Scope[] targetDependencyScopes, Map<String, String> properties) throws SAXException {
         List<Artifact.Builder> retVal = new ArrayList<>();
-
-        System.out.println("Num deps: " + dependencyNodes.getLength());
 
         for (int i = 0; i < dependencyNodes.getLength(); i++) {
             Node dependencyNode = dependencyNodes.item(i);
@@ -229,11 +219,6 @@ public class MavenUtil {
                 continue;
             }
 
-            System.out.println("Group: " + groupId);
-            System.out.println("Artifact: " + artifactId);
-            System.out.println("Version: " + version);
-            System.out.println("Scope: " + scope);
-
             if (groupId == null || artifactId == null || version == null) {
                 throw new SAXException("Could not get dependencies from pom.");
             }
@@ -251,13 +236,11 @@ public class MavenUtil {
     }
 
     public static List<String> getDeclaredRepositories(Artifact artifact, File cacheDir) throws IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting declared repositories for " + artifact.getGroupId() + ":" + artifact.getArtifactId() + "::" + artifact.getVersion());
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
         return fetchDeclaredRepositories(DocumentUtil.getDocument(pomFile), artifact.getParent(), artifact.getProperties());
     }
 
     public static List<String> getDeclaredRepositories(ArtifactParent parent, File cacheDir) throws IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting declared repositories for " + parent.getGroupId() + ":" + parent.getArtifactId() + "::" + parent.getVersion());
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
         return fetchDeclaredRepositories(DocumentUtil.getDocument(pomFile), parent.getParent(), parent.getProperties());
     }
@@ -266,7 +249,6 @@ public class MavenUtil {
         List<String> retVal = new ArrayList<>();
 
         NodeList repositoryNodes = DocumentUtil.getNodesByXPath(document, "/project/repositories/repository");
-        System.out.println("Num repos: " + repositoryNodes.getLength());
         for (int i = 0; i < repositoryNodes.getLength(); i++) {
             Node repositoryNode = repositoryNodes.item(i);
             if (repositoryNode == null || repositoryNode.getNodeType() != Node.ELEMENT_NODE) {
@@ -313,7 +295,6 @@ public class MavenUtil {
     }
 
     public static ArtifactParent getParent(Artifact artifact, File cacheDir, int depth) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting parent for " + artifact.getGroupId() + ":" + artifact.getArtifactId() + "::" + artifact.getVersion());
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
         ArtifactParent.Builder retVal = fetchArtifactParent(DocumentUtil.getDocument(pomFile), null, artifact.getProperties());
         if (retVal == null) {
@@ -327,7 +308,6 @@ public class MavenUtil {
     }
 
     public static ArtifactParent getParent(ArtifactParent parent, File cacheDir, int depth) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting parent for " + parent.getGroupId() + ":" + parent.getArtifactId() + "::" + parent.getVersion());
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
         ArtifactParent.Builder retVal = fetchArtifactParent(DocumentUtil.getDocument(pomFile), null, parent.getProperties());
         if (retVal == null) {
@@ -342,7 +322,6 @@ public class MavenUtil {
 
     private static ArtifactParent.Builder fetchArtifactParent(Document document, ArtifactParent parent, Map<String, String> properties) throws XPathExpressionException, SAXException {
         NodeList parentNodes = DocumentUtil.getNodesByXPath(document, "/project/parent");
-        System.out.println("Has parent: " + (parentNodes.getLength() != 0));
         if (parentNodes.getLength() == 0) {
             return null;
         }
@@ -381,10 +360,6 @@ public class MavenUtil {
         artifactId = fillPlaceholders(artifactId, parent, properties);
         version = fillPlaceholders(version, parent, properties);
 
-        System.out.println("Group: " + groupId);
-        System.out.println("Artifact: " + artifactId);
-        System.out.println("Version: " + version);
-
         if (groupId == null || artifactId == null || version == null) {
             throw new SAXException("Could not get parent from pom.");
         }
@@ -393,12 +368,10 @@ public class MavenUtil {
     }
 
     public static String getLatestVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting latest version for " + artifact.getGroupId() + ":" + artifact.getArtifactId() + "::" + artifact.getVersion());
         return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
     }
 
     public static String getLatestVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting latest version for " + parent.getGroupId() + ":" + parent.getArtifactId() + "::" + parent.getVersion());
         return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
     }
 
@@ -418,17 +391,14 @@ public class MavenUtil {
             throw new SAXException("Could not get latest version from metadata.");
         }
 
-        System.out.println("Version: " + innerNode.getNodeValue());
         return innerNode.getNodeValue().replaceAll("\\s", "");
     }
 
     public static String getReleaseVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting release version for " + artifact.getGroupId() + ":" + artifact.getArtifactId() + "::" + artifact.getVersion());
         return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
     }
 
     public static String getReleaseVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting release version for " + parent.getGroupId() + ":" + parent.getArtifactId() + "::" + parent.getVersion());
         return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
     }
 
@@ -448,17 +418,14 @@ public class MavenUtil {
             throw new SAXException("Could not get release version from metadata.");
         }
 
-        System.out.println("Version: " + innerNode.getNodeValue());
         return innerNode.getNodeValue().replaceAll("\\s", "");
     }
 
     public static String getSnapshotVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting snapshot version for " + artifact.getGroupId() + ":" + artifact.getArtifactId() + "::" + artifact.getVersion());
         return artifact.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(artifact)));
     }
 
     public static String getSnapshotVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        System.out.println("Getting snapshot version for " + parent.getGroupId() + ":" + parent.getArtifactId() + "::" + parent.getVersion());
         return parent.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(parent)));
     }
 
@@ -494,9 +461,6 @@ public class MavenUtil {
                 buildNumber = innerNode.getNodeValue();
             }
         }
-
-        System.out.println("Timestamp: " + timestamp);
-        System.out.println("Build: " + buildNumber);
 
         if (timestamp == null || buildNumber == null) {
             throw new SAXException("Could not get snapshot version from metadata.");

@@ -20,7 +20,6 @@ public class DownloadUtil {
             IOException lastEx = null;
             for (URL url : urls) {
                 try {
-                    System.out.println("Trying: " + url);
                     HTTPUtil.downloadFile(url, output);
                     return output;
                 } catch (IOException ex) {

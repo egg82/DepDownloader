@@ -149,7 +149,6 @@ public class Artifact {
                 if (!scopesEqual(targetDependencyScopes, cachedResult.dependencyScopes) || (!result.finalDepth && cachedResult.finalDepth)) {
                     cache.put(result.toString(), result);
                 } else {
-                    System.out.println("Returning cached result for " + result.groupId + ":" + result.artifactId + "::" + result.version);
                     return result.scope == cachedResult.scope ? cachedResult : copyArtifact(cachedResult, result.scope);
                 }
             }
