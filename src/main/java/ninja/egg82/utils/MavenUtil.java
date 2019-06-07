@@ -20,13 +20,13 @@ import org.xml.sax.SAXException;
 public class MavenUtil {
     private MavenUtil() {}
 
-    public static Map<String, String> getProperties(Artifact artifact, File cacheDir) throws IOException, XPathExpressionException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
+    public static Map<String, String> getProperties(Artifact artifact) throws IOException, XPathExpressionException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
         return fetchProperties(DocumentUtil.getDocument(pomFile));
     }
 
-    public static Map<String, String> getProperties(ArtifactParent parent, File cacheDir) throws IOException, XPathExpressionException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
+    public static Map<String, String> getProperties(ArtifactParent parent) throws IOException, XPathExpressionException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(parent), HTTPUtil.toURLs(parent.getPomURIs()));
         return fetchProperties(DocumentUtil.getDocument(pomFile));
     }
 
@@ -60,60 +60,60 @@ public class MavenUtil {
         return retVal;
     }
 
-    public static List<Artifact> getDependencies(Artifact artifact, File cacheDir, int depth, Scope[] targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
+    public static List<Artifact> getDependencies(Artifact artifact) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
 
         Set<String> repositories = getRepositories(artifact);
 
         List<Artifact> retVal = new ArrayList<>();
-        List<Artifact.Builder> builders = fetchHardDependencies(artifact.getParent(), DocumentUtil.getDocument(pomFile), targetDependencyScopes, artifact.getProperties());
+        List<Artifact.Builder> builders = fetchHardDependencies(artifact.getParent(), DocumentUtil.getDocument(pomFile), artifact.getProperties(), artifact.getCacheDir());
 
         for (Artifact.Builder builder : builders) {
             for (String repository : repositories) {
                 builder.addRepository(repository);
             }
-            retVal.add(builder.build(cacheDir, depth));
+            retVal.add(builder.build());
         }
 
         ArtifactParent p = artifact.getParent();
         while (p != null) {
-            retVal.addAll((p.getHardDependencies() != null) ? p.getHardDependencies() : getHardDependencies(p, cacheDir, depth, targetDependencyScopes)); // Recursion fix
+            retVal.addAll(p.getHardDependencies());
             p = p.getParent();
         }
 
         return retVal;
     }
 
-    public static List<Artifact> getSoftDependencies(ArtifactParent parent, File cacheDir, int depth, Scope[] targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
+    public static List<Artifact> getSoftDependencies(ArtifactParent parent) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(parent), HTTPUtil.toURLs(parent.getPomURIs()));
 
         Set<String> repositories = getRepositories(parent);
 
         List<Artifact> retVal = new ArrayList<>();
-        List<Artifact.Builder> builders = fetchSoftDependencies(parent.getParent(), DocumentUtil.getDocument(pomFile), targetDependencyScopes, parent.getProperties());
+        List<Artifact.Builder> builders = fetchSoftDependencies(parent.getParent(), DocumentUtil.getDocument(pomFile), parent.getProperties(), parent.getCacheDir());
 
         for (Artifact.Builder builder : builders) {
             for (String repository : repositories) {
                 builder.addRepository(repository);
             }
-            retVal.add(builder.build(cacheDir, depth));
+            retVal.add(builder.build());
         }
         return retVal;
     }
 
-    public static List<Artifact> getHardDependencies(ArtifactParent parent, File cacheDir, int depth, Scope[] targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
+    public static List<Artifact> getHardDependencies(ArtifactParent parent) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(parent), HTTPUtil.toURLs(parent.getPomURIs()));
 
         Set<String> repositories = getRepositories(parent);
 
         List<Artifact> retVal = new ArrayList<>();
-        List<Artifact.Builder> builders = fetchHardDependencies(parent.getParent(), DocumentUtil.getDocument(pomFile), targetDependencyScopes, parent.getProperties());
+        List<Artifact.Builder> builders = fetchHardDependencies(parent.getParent(), DocumentUtil.getDocument(pomFile), parent.getProperties(), parent.getCacheDir());
 
         for (Artifact.Builder builder : builders) {
             for (String repository : repositories) {
                 builder.addRepository(repository);
             }
-            retVal.add(builder.build(cacheDir, depth));
+            retVal.add(builder.build());
         }
         return retVal;
     }
@@ -142,15 +142,15 @@ public class MavenUtil {
         return retVal;
     }
 
-    private static List<Artifact.Builder> fetchSoftDependencies(ArtifactParent parent, Document document, Scope[] targetDependencyScopes, Map<String, String> properties) throws XPathExpressionException, SAXException {
-        return fetchDependencies(parent, DocumentUtil.getNodesByXPath(document, "/project/dependencyManagement/dependencies/dependency"), targetDependencyScopes, properties);
+    private static List<Artifact.Builder> fetchSoftDependencies(ArtifactParent parent, Document document, Map<String, String> properties, File cacheDir) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        return fetchDependencies(parent, DocumentUtil.getNodesByXPath(document, "/project/dependencyManagement/dependencies/dependency"), properties, cacheDir);
     }
 
-    private static List<Artifact.Builder> fetchHardDependencies(ArtifactParent parent, Document document, Scope[] targetDependencyScopes, Map<String, String> properties) throws XPathExpressionException, SAXException {
-        return fetchDependencies(parent, DocumentUtil.getNodesByXPath(document, "/project/dependencies/dependency"), targetDependencyScopes, properties);
+    private static List<Artifact.Builder> fetchHardDependencies(ArtifactParent parent, Document document, Map<String, String> properties, File cacheDir) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        return fetchDependencies(parent, DocumentUtil.getNodesByXPath(document, "/project/dependencies/dependency"), properties, cacheDir);
     }
 
-    private static List<Artifact.Builder> fetchDependencies(ArtifactParent parent, NodeList dependencyNodes, Scope[] targetDependencyScopes, Map<String, String> properties) throws SAXException {
+    private static List<Artifact.Builder> fetchDependencies(ArtifactParent parent, NodeList dependencyNodes, Map<String, String> properties, File cacheDir) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
         List<Artifact.Builder> retVal = new ArrayList<>();
 
         for (int i = 0; i < dependencyNodes.getLength(); i++) {
@@ -225,23 +225,19 @@ public class MavenUtil {
 
             Scope scopeEnum = Scope.fromName(scope);
 
-            if (!hasScope(targetDependencyScopes, scopeEnum)) {
-                continue;
-            }
-
-            retVal.add(Artifact.builder(groupId.replaceAll("\\s", ""), artifactId.replaceAll("\\s", ""), version.replaceAll("\\s", ""), scopeEnum));
+            retVal.add(Artifact.builder(groupId.replaceAll("\\s", ""), artifactId.replaceAll("\\s", ""), version.replaceAll("\\s", ""), cacheDir));
         }
 
         return retVal;
     }
 
-    public static List<String> getDeclaredRepositories(Artifact artifact, File cacheDir) throws IOException, XPathExpressionException, SAXException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
+    public static List<String> getDeclaredRepositories(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
         return fetchDeclaredRepositories(DocumentUtil.getDocument(pomFile), artifact.getParent(), artifact.getProperties());
     }
 
-    public static List<String> getDeclaredRepositories(ArtifactParent parent, File cacheDir) throws IOException, XPathExpressionException, SAXException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
+    public static List<String> getDeclaredRepositories(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(parent), HTTPUtil.toURLs(parent.getPomURIs()));
         return fetchDeclaredRepositories(DocumentUtil.getDocument(pomFile), parent.getParent(), parent.getProperties());
     }
 
@@ -294,9 +290,9 @@ public class MavenUtil {
         return retVal;
     }
 
-    public static ArtifactParent getParent(Artifact artifact, File cacheDir, int depth) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
-        ArtifactParent.Builder retVal = fetchArtifactParent(DocumentUtil.getDocument(pomFile), null, artifact.getProperties());
+    public static ArtifactParent getParent(Artifact artifact) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
+        ArtifactParent.Builder retVal = fetchArtifactParent(DocumentUtil.getDocument(pomFile), artifact.getProperties(), artifact.getCacheDir());
         if (retVal == null) {
             return null;
         }
@@ -304,12 +300,12 @@ public class MavenUtil {
         for (String repository : artifact.getRepositories()) {
             retVal.addRepository(repository);
         }
-        return retVal.build(cacheDir, depth);
+        return retVal.build();
     }
 
-    public static ArtifactParent getParent(ArtifactParent parent, File cacheDir, int depth) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(cacheDir, parent), HTTPUtil.toURLs(parent.getPomURIs()));
-        ArtifactParent.Builder retVal = fetchArtifactParent(DocumentUtil.getDocument(pomFile), null, parent.getProperties());
+    public static ArtifactParent getParent(ArtifactParent parent) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(parent), HTTPUtil.toURLs(parent.getPomURIs()));
+        ArtifactParent.Builder retVal = fetchArtifactParent(DocumentUtil.getDocument(pomFile), parent.getProperties(), parent.getCacheDir());
         if (retVal == null) {
             return null;
         }
@@ -317,10 +313,10 @@ public class MavenUtil {
         for (String repository : parent.getRepositories()) {
             retVal.addRepository(repository);
         }
-        return retVal.build(cacheDir, depth);
+        return retVal.build();
     }
 
-    private static ArtifactParent.Builder fetchArtifactParent(Document document, ArtifactParent parent, Map<String, String> properties) throws XPathExpressionException, SAXException {
+    private static ArtifactParent.Builder fetchArtifactParent(Document document, Map<String, String> properties, File cacheDir) throws XPathExpressionException, SAXException {
         NodeList parentNodes = DocumentUtil.getNodesByXPath(document, "/project/parent");
         if (parentNodes.getLength() == 0) {
             return null;
@@ -356,15 +352,15 @@ public class MavenUtil {
             }
         }
 
-        groupId = fillPlaceholders(groupId, parent, properties);
-        artifactId = fillPlaceholders(artifactId, parent, properties);
-        version = fillPlaceholders(version, parent, properties);
+        groupId = fillPlaceholders(groupId, null, properties);
+        artifactId = fillPlaceholders(artifactId, null, properties);
+        version = fillPlaceholders(version, null, properties);
 
         if (groupId == null || artifactId == null || version == null) {
             throw new SAXException("Could not get parent from pom.");
         }
 
-        return ArtifactParent.builder(groupId.replaceAll("\\s", ""), artifactId.replaceAll("\\s", ""), version.replaceAll("\\s", ""));
+        return ArtifactParent.builder(groupId.replaceAll("\\s", ""), artifactId.replaceAll("\\s", ""), version.replaceAll("\\s", ""), cacheDir);
     }
 
     public static String getLatestVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
@@ -509,15 +505,6 @@ public class MavenUtil {
         return retVal;
     }
 
-    private static boolean hasScope(Scope[] scopes, Scope scope) {
-        for (Scope s : scopes) {
-            if (s.equals(scope)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static String fillPlaceholders(String text, ArtifactParent parent, Map<String, String> properties) {
         if (text == null || text.isEmpty() || !containsPlaceholder(text)) {
             return text;
@@ -545,16 +532,16 @@ public class MavenUtil {
 
     private static String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
 
-    private static File getCachePom(File cacheDir, Artifact artifact) {
-        return new File(cacheDir,
+    private static File getCachePom(Artifact artifact) {
+        return new File(artifact.getCacheDir(),
                 artifact.getGroupId().replace('.', File.separatorChar)
                         + File.separator + artifact.getArtifactId()
                         + File.separator + artifact.getVersion() + ".pom"
         );
     }
 
-    private static File getCachePom(File cacheDir, ArtifactParent parent) {
-        return new File(cacheDir,
+    private static File getCachePom(ArtifactParent parent) {
+        return new File(parent.getCacheDir(),
                 parent.getGroupId().replace('.', File.separatorChar)
                         + File.separator + parent.getArtifactId()
                         + File.separator + parent.getVersion() + ".pom"

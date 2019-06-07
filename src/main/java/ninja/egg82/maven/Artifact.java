@@ -69,19 +69,31 @@ public class Artifact {
     private ArtifactParent parent = null;
     public ArtifactParent getParent() { return parent; }
 
-    private List<Artifact> dependencies = null;
-    public List<Artifact> getDependencies() { return dependencies; }
+    private volatile List<Artifact> dependencies = null;
+    public List<Artifact> getDependencies() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        List<Artifact> tmp = dependencies;
+        if (tmp == null) {
+            synchronized (this) {
+                tmp = dependencies;
+                if (tmp == null) {
+                    dependencies = tmp = MavenUtil.getDependencies(this);
+                }
+            }
+        }
+        return tmp;
+    }
 
-    private Scope[] dependencyScopes = null;
-    private boolean finalDepth = false;
+    private final File cacheDir;
+    public File getCacheDir() { return cacheDir; }
 
     private final int computedHash;
 
-    private Artifact(String groupId, String artifactId, String version, Scope scope) {
+    private Artifact(String groupId, String artifactId, String version, File cacheDir, Scope scope) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.scope = scope;
         this.version = version;
+        this.cacheDir = cacheDir;
 
         computedHash = Objects.hash(groupId, artifactId, version);
 
@@ -98,15 +110,33 @@ public class Artifact {
         realVersion = strippedVersion;
     }
 
-    public static Builder builder(String groupId, String artifactId, String version) { return new Builder(groupId, artifactId, version, Scope.COMPILE); }
+    public static Builder builder(String groupId, String artifactId, String version, File cacheDir) throws IOException { return new Builder(groupId, artifactId, version, cacheDir, Scope.COMPILE); }
 
-    public static Builder builder(String groupId, String artifactId, String version, Scope scope) { return new Builder(groupId, artifactId, version, scope); }
+    public static Builder builder(String groupId, String artifactId, String version, File cacheDir, Scope scope) throws IOException { return new Builder(groupId, artifactId, version, cacheDir, scope); }
 
     public static class Builder {
         private final Artifact result;
 
-        private Builder(String groupId, String artifactId, String version, Scope scope) {
-            result = new Artifact(groupId, artifactId, version, scope);
+        private Builder(String groupId, String artifactId, String version, File cacheDir, Scope scope) throws IOException {
+            if (groupId == null || groupId.isEmpty()) {
+                throw new IllegalArgumentException("groupId cannot be null or empty.");
+            }
+            if (artifactId == null || artifactId.isEmpty()) {
+                throw new IllegalArgumentException("artifactId cannot be null or empty.");
+            }
+            if (version == null || version.isEmpty()) {
+                throw new IllegalArgumentException("version cannot be null or empty.");
+            }
+            if (cacheDir == null) {
+                throw new IllegalArgumentException("cacheDir cannot be null.");
+            }
+            if (scope == null) {
+                throw new IllegalArgumentException("scope cannot be null.");
+            }
+
+            DownloadUtil.createDirectory(cacheDir);
+
+            result = new Artifact(groupId, artifactId, version, cacheDir, scope);
         }
 
         public Builder addRepository(String url) {
@@ -131,26 +161,10 @@ public class Artifact {
             return this;
         }
 
-        public Artifact build(File cacheDir, int depth) throws URISyntaxException, IOException, XPathExpressionException, SAXException { return build(cacheDir, depth, Scope.COMPILE, Scope.RUNTIME); }
-
-        public Artifact build(File cacheDir, int depth, Scope... targetDependencyScopes) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
-            if (cacheDir == null) {
-                throw new IllegalArgumentException("cacheDir cannot be null.");
-            }
-            DownloadUtil.createDirectory(cacheDir);
-
-            if (depth == 0) {
-                result.finalDepth = true;
-            }
-            result.dependencyScopes = targetDependencyScopes;
-
+        public Artifact build() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
             Artifact cachedResult = cache.putIfAbsent(result.toString(), result);
             if (result.equals(cachedResult)) {
-                if (!scopesEqual(targetDependencyScopes, cachedResult.dependencyScopes) || (!result.finalDepth && cachedResult.finalDepth)) {
-                    cache.put(result.toString(), result);
-                } else {
-                    return result.scope == cachedResult.scope ? cachedResult : copyArtifact(cachedResult, result.scope);
-                }
+                return result.scope == cachedResult.scope && result.cacheDir == cachedResult.cacheDir ? cachedResult : copyArtifact(result);
             }
 
             if (result.snapshot) {
@@ -191,7 +205,7 @@ public class Artifact {
                 return result;
             }
 
-            result.properties = MavenUtil.getProperties(result, cacheDir);
+            result.properties = MavenUtil.getProperties(result);
             result.properties.put("project.groupId", result.groupId);
             result.properties.put("project.artifactId", result.artifactId);
             result.properties.put("project.version", result.version);
@@ -200,9 +214,8 @@ public class Artifact {
             result.properties.put("pom.artifactId", result.artifactId);
             result.properties.put("pom.version", result.version);
             result.properties.put("pom.scope", result.scope.getName());
-            result.parent = MavenUtil.getParent(result, cacheDir, (depth == -1) ? depth : 1);
-            result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result, cacheDir));
-            result.dependencies = (depth == 0) ? new ArrayList<>() : MavenUtil.getDependencies(result, cacheDir, Math.max(depth - 1, -1), targetDependencyScopes);
+            result.parent = MavenUtil.getParent(result);
+            result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result));
 
             return result;
         }
@@ -215,9 +228,10 @@ public class Artifact {
 
         private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
 
-        private Artifact copyArtifact(Artifact artifact, Scope newScope) {
-            Artifact retVal = new Artifact(artifact.groupId, artifact.artifactId, artifact.version, newScope);
+        private Artifact copyArtifact(Artifact artifact) {
+            Artifact retVal = new Artifact(artifact.groupId, artifact.artifactId, artifact.version, artifact.cacheDir, artifact.scope);
             retVal.strippedVersion = artifact.strippedVersion;
+            retVal.realVersion = artifact.realVersion;
             retVal.properties = artifact.properties;
             retVal.repositories = artifact.repositories;
             retVal.declaredRepositories = artifact.declaredRepositories;
@@ -228,18 +242,6 @@ public class Artifact {
             retVal.parent = artifact.parent;
             retVal.dependencies = artifact.dependencies;
             return retVal;
-        }
-
-        private boolean scopesEqual(Scope[] scopes1, Scope[] scopes2) {
-            if (scopes1.length != scopes2.length) {
-                return false;
-            }
-            for (int i = 0; i < scopes1.length; i++) {
-                if (scopes1[i] != scopes2[i]) {
-                    return false;
-                }
-            }
-            return true;
         }
     }
 
