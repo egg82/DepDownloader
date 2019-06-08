@@ -259,6 +259,8 @@ public class Artifact {
         HTTPUtil.downloadFile(HTTPUtil.toURLs(pomURIs), output);
     }
 
+    public boolean fileExists(File output) { return DownloadUtil.hasFile(output); }
+
     public void injectJar(File output, URLClassLoader classLoader) throws IOException, IllegalAccessException, InvocationTargetException {
         InjectUtil.injectFile(DownloadUtil.getOrDownloadFile(output, HTTPUtil.toURLs(jarURIs)), classLoader);
     }

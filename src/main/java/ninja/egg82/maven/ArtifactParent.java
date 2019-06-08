@@ -210,6 +210,15 @@ public class ArtifactParent {
         }
     }
 
+    public void downloadPom(File output) throws IOException {
+        if (output == null) {
+            throw new IllegalArgumentException("output cannot be null.");
+        }
+        HTTPUtil.downloadFile(HTTPUtil.toURLs(pomURIs), output);
+    }
+
+    public boolean fileExists(File output) { return DownloadUtil.hasFile(output); }
+
     public String toString() { return groupId + ":" + artifactId + ":" + version; }
 
     @Override
