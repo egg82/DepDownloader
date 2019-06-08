@@ -47,6 +47,14 @@ public class ArtifactTests {
     @Test
     public void testGetSnapshot() {
         Assertions.assertDoesNotThrow(() -> {
+            Artifact acfPaper = Artifact.builder("co.aikar", "acf-paper", "0.5.0-SNAPSHOT", new File(getCurrentDirectory(), "cache"))
+                    .addRepository("https://nexus.egg82.me/repository/aikar/")
+                    .addRepository("https://repo.aikar.co/nexus/content/groups/aikar/")
+                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .build();
+
+            System.out.println("ACF Paper version: " + acfPaper.getRealVersion());
+
             Artifact acfCore = Artifact.builder("co.aikar", "acf-core", "0.5.0-SNAPSHOT", new File(getCurrentDirectory(), "cache"))
                     .addRepository("https://nexus.egg82.me/repository/aikar/")
                     .addRepository("https://repo.aikar.co/nexus/content/groups/aikar/")

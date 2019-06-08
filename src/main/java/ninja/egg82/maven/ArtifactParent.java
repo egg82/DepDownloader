@@ -153,7 +153,13 @@ public class ArtifactParent {
             }
 
             if (result.snapshot) {
-                String version = MavenUtil.getSnapshotVersion(result);
+                String version;
+                try {
+                    version = MavenUtil.getSnapshotVersion(result);
+                } catch (SAXException ignored) {
+                    // Some parent artifacts don't have a "last updated" attached to them.
+                    version = result.version;
+                }
                 result.realVersion = version;
             } else if (result.release) {
                 String version = MavenUtil.getReleaseVersion(result);
