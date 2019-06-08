@@ -208,7 +208,6 @@ public class MavenUtil {
             groupId = fillPlaceholders(groupId, parent, properties);
             artifactId = fillPlaceholders(artifactId, parent, properties);
             version = fillPlaceholders(version, parent, properties);
-            scope = fillPlaceholders(scope, parent, properties);
 
             if (version == null && parent != null) {
                 version = parent.getVersion();
@@ -220,12 +219,13 @@ public class MavenUtil {
             }
 
             if (groupId == null || artifactId == null || version == null) {
-                throw new SAXException("Could not get dependencies from pom.");
+                // And yet more have no versions, because why not?
+                continue;
             }
 
             Scope scopeEnum = Scope.fromName(scope);
 
-            retVal.add(Artifact.builder(groupId.replaceAll("\\s", ""), artifactId.replaceAll("\\s", ""), version.replaceAll("\\s", ""), cacheDir));
+            retVal.add(Artifact.builder(groupId.replaceAll("\\s", ""), artifactId.replaceAll("\\s", ""), version.replaceAll("\\s", ""), cacheDir, scopeEnum));
         }
 
         return retVal;
