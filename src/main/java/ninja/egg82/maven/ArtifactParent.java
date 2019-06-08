@@ -149,70 +149,10 @@ public class ArtifactParent {
         public ArtifactParent build() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
             ArtifactParent cachedResult = cache.putIfAbsent(result.toString(), result);
             if (result.equals(cachedResult)) {
-                return result.cacheDir == cachedResult.cacheDir ? cachedResult : copyParent(result);
+                return result.cacheDir.equals(cachedResult.cacheDir) ? cachedResult : result.copyParent(result);
             }
 
-            if (result.snapshot) {
-                String version;
-                try {
-                    version = MavenUtil.getSnapshotVersion(result);
-                } catch (SAXException ignored) {
-                    // Some parent artifacts don't have a "last updated" attached to them.
-                    version = result.version;
-                }
-                result.realVersion = version;
-            } else if (result.release) {
-                String version = MavenUtil.getReleaseVersion(result);
-                result.version = result.snapshot ? version + "-SNAPSHOT" : version;
-                result.strippedVersion = version;
-                result.realVersion = version;
-            } else if (result.latest) {
-                String version = MavenUtil.getLatestVersion(result);
-                result.version = result.snapshot ? version + "-SNAPSHOT" : version;
-                result.strippedVersion = version;
-                result.realVersion = version;
-            }
-
-            String group = result.groupId.replace('.', '/');
-            for (String repository : result.repositories) {
-                result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.realVersion) + ".pom"));
-            }
-
-            if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(result.pomURIs))) {
-                // Some deps just don't exist any more. Wheee!
-                result.properties = new HashMap<>();
-                result.softDependencies = new ArrayList<>();
-                result.hardDependencies = new ArrayList<>();
-                return result;
-            }
-
-            result.properties = MavenUtil.getProperties(result);
-            result.properties.put("project.groupId", result.groupId);
-            result.properties.put("project.artifactId", result.artifactId);
-            result.properties.put("project.version", result.version);
-            result.properties.put("pom.groupId", result.groupId);
-            result.properties.put("pom.artifactId", result.artifactId);
-            result.properties.put("pom.version", result.version);
-            result.parent = MavenUtil.getParent(result);
-            result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result));
-
-            return result;
-        }
-
-        private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
-
-        private ArtifactParent copyParent(ArtifactParent parent) {
-            ArtifactParent retVal = new ArtifactParent(parent.groupId, parent.artifactId, parent.version, parent.cacheDir);
-            retVal.strippedVersion = parent.strippedVersion;
-            retVal.realVersion = parent.realVersion;
-            retVal.properties = parent.properties;
-            retVal.repositories = parent.repositories;
-            retVal.declaredRepositories = parent.declaredRepositories;
-            retVal.pomURIs = parent.pomURIs;
-            retVal.parent = parent.parent;
-            retVal.softDependencies = parent.softDependencies;
-            retVal.hardDependencies = parent.hardDependencies;
-            return retVal;
+            return result.build();
         }
     }
 
@@ -239,4 +179,69 @@ public class ArtifactParent {
 
     @Override
     public int hashCode() { return computedHash; }
+
+    private ArtifactParent build() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        if (snapshot) {
+            String v;
+            try {
+                v = MavenUtil.getSnapshotVersion(this);
+            } catch (SAXException ignored) {
+                // Some parent artifacts don't have a "last updated" attached to them.
+                v = version;
+            }
+            realVersion = v;
+        }
+        if (release) {
+            String v = MavenUtil.getReleaseVersion(this);
+            version = snapshot ? v + "-SNAPSHOT" : v;
+            strippedVersion = v;
+            realVersion = v;
+        } else if (latest) {
+            String v = MavenUtil.getLatestVersion(this);
+            version = snapshot ? v + "-SNAPSHOT" : v;
+            strippedVersion = v;
+            realVersion = v;
+        }
+
+        String group = groupId.replace('.', '/');
+        for (String repository : repositories) {
+            pomURIs.add(new URI(repository + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".pom"));
+        }
+
+        if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(pomURIs))) {
+            // Some deps just don't exist any more. Wheee!
+            properties = new HashMap<>();
+            softDependencies = new ArrayList<>();
+            hardDependencies = new ArrayList<>();
+            return this;
+        }
+
+        properties = MavenUtil.getProperties(this);
+        properties.put("project.groupId", groupId);
+        properties.put("project.artifactId", artifactId);
+        properties.put("project.version", version);
+        properties.put("pom.groupId", groupId);
+        properties.put("pom.artifactId", artifactId);
+        properties.put("pom.version", version);
+        parent = MavenUtil.getParent(this);
+        declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(this));
+
+        return this;
+    }
+
+    private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
+
+    private ArtifactParent copyParent(ArtifactParent parent) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        ArtifactParent retVal = new ArtifactParent(parent.groupId, parent.artifactId, parent.version, parent.cacheDir);
+        retVal.strippedVersion = parent.strippedVersion;
+        retVal.realVersion = parent.realVersion;
+        retVal.properties = parent.properties;
+        retVal.repositories = parent.repositories;
+        retVal.declaredRepositories = parent.declaredRepositories;
+        retVal.pomURIs = parent.pomURIs;
+        retVal.parent = parent.parent;
+        retVal.softDependencies = parent.softDependencies;
+        retVal.hardDependencies = parent.hardDependencies;
+        return retVal.build();
+    }
 }

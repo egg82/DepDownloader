@@ -164,84 +164,10 @@ public class Artifact {
         public Artifact build() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
             Artifact cachedResult = cache.putIfAbsent(result.toString(), result);
             if (result.equals(cachedResult)) {
-                return result.scope == cachedResult.scope && result.cacheDir == cachedResult.cacheDir ? cachedResult : copyArtifact(result);
+                return result.scope == cachedResult.scope && result.cacheDir.equals(cachedResult.cacheDir) ? cachedResult : result.copyArtifact(result);
             }
 
-            if (result.snapshot) {
-                String version = MavenUtil.getSnapshotVersion(result);
-                result.realVersion = version;
-            } else if (result.release) {
-                String version = MavenUtil.getReleaseVersion(result);
-                result.version = result.snapshot ? version + "-SNAPSHOT" : version;
-                result.strippedVersion = version;
-                result.realVersion = version;
-            } else if (result.latest) {
-                String version = MavenUtil.getLatestVersion(result);
-                result.version = result.snapshot ? version + "-SNAPSHOT" : version;
-                result.strippedVersion = version;
-                result.realVersion = version;
-            }
-
-            for (String url : result.rawDirectJarURIs) {
-                result.directJarURIs.add(new URI(replaceURL(url)));
-
-                String pomURL = url.replace(".jar", ".pom");
-                if (!pomURL.equals(url)) {
-                    result.pomURIs.add(new URI(replaceURL(pomURL)));
-                }
-            }
-            result.jarURIs.addAll(result.directJarURIs);
-
-            String group = result.groupId.replace('.', '/');
-            for (String repository : result.repositories) {
-                result.jarURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.realVersion) + ".jar"));
-                result.pomURIs.add(new URI(repository + group + "/" + result.artifactId + "/" + encode(result.version) + "/" + result.artifactId + "-" + encode(result.realVersion) + ".pom"));
-            }
-
-            if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(result.pomURIs))) {
-                // Some deps just don't exist any more. Wheee!
-                result.properties = new HashMap<>();
-                result.dependencies = new ArrayList<>();
-                return result;
-            }
-
-            result.properties = MavenUtil.getProperties(result);
-            result.properties.put("project.groupId", result.groupId);
-            result.properties.put("project.artifactId", result.artifactId);
-            result.properties.put("project.version", result.version);
-            result.properties.put("project.scope", result.scope.getName());
-            result.properties.put("pom.groupId", result.groupId);
-            result.properties.put("pom.artifactId", result.artifactId);
-            result.properties.put("pom.version", result.version);
-            result.properties.put("pom.scope", result.scope.getName());
-            result.parent = MavenUtil.getParent(result);
-            result.declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(result));
-
-            return result;
-        }
-
-        private String replaceURL(String url) {
-            return url.replace("{GROUP}", result.groupId.replace('.', '/'))
-                    .replace("{ARTIFACT}", result.artifactId)
-                    .replace("{VERSION}", result.version);
-        }
-
-        private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
-
-        private Artifact copyArtifact(Artifact artifact) {
-            Artifact retVal = new Artifact(artifact.groupId, artifact.artifactId, artifact.version, artifact.cacheDir, artifact.scope);
-            retVal.strippedVersion = artifact.strippedVersion;
-            retVal.realVersion = artifact.realVersion;
-            retVal.properties = artifact.properties;
-            retVal.repositories = artifact.repositories;
-            retVal.declaredRepositories = artifact.declaredRepositories;
-            retVal.rawDirectJarURIs = artifact.rawDirectJarURIs;
-            retVal.directJarURIs = artifact.directJarURIs;
-            retVal.jarURIs = artifact.jarURIs;
-            retVal.pomURIs = artifact.pomURIs;
-            retVal.parent = artifact.parent;
-            retVal.dependencies = artifact.dependencies;
-            return retVal;
+            return result.build();
         }
     }
 
@@ -279,4 +205,87 @@ public class Artifact {
 
     @Override
     public int hashCode() { return computedHash; }
+
+    private Artifact build() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        if (snapshot) {
+            realVersion = MavenUtil.getSnapshotVersion(this);
+        }
+        if (release) {
+            String v = MavenUtil.getReleaseVersion(this);
+            version = snapshot ? v + "-SNAPSHOT" : v;
+            strippedVersion = v;
+            realVersion = v;
+        } else if (latest) {
+            String v = MavenUtil.getLatestVersion(this);
+            version = snapshot ? v + "-SNAPSHOT" : v;
+            strippedVersion = v;
+            realVersion = v;
+        }
+
+        for (String url : rawDirectJarURIs) {
+            directJarURIs.add(new URI(replaceURL(url)));
+
+            String pomURL = url.replace(".jar", ".pom");
+            if (!pomURL.equals(url)) {
+                pomURIs.add(new URI(replaceURL(pomURL)));
+            }
+        }
+        jarURIs.addAll(directJarURIs);
+
+        String group = groupId.replace('.', '/');
+        for (String repository : repositories) {
+            jarURIs.add(new URI(repository + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".jar"));
+            pomURIs.add(new URI(repository + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".pom"));
+        }
+
+        if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(pomURIs))) {
+            // Some deps just don't exist any more. Wheee!
+            properties = new HashMap<>();
+            dependencies = new ArrayList<>();
+            return this;
+        }
+
+        properties = MavenUtil.getProperties(this);
+        properties.put("project.groupId", groupId);
+        properties.put("project.artifactId", artifactId);
+        properties.put("project.version", version);
+        properties.put("project.scope", scope.getName());
+        properties.put("pom.groupId", groupId);
+        properties.put("pom.artifactId", artifactId);
+        properties.put("pom.version", version);
+        properties.put("pom.scope", scope.getName());
+        parent = MavenUtil.getParent(this);
+        declaredRepositories.addAll(MavenUtil.getDeclaredRepositories(this));
+
+        return this;
+    }
+
+    private String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
+
+    private String replaceURL(String url) {
+        return url.replace("{GROUP}", groupId.replace('.', '/'))
+                .replace("{ARTIFACT}", artifactId)
+                .replace("{VERSION}", version)
+                .replace("{SNAPSHOT}", realVersion)
+                .replace("{LATEST}", realVersion)
+                .replace("{RELEASE}", realVersion)
+                .replace("{STRIPPED}", strippedVersion)
+                .replace("{REAL}", realVersion);
+    }
+
+    private Artifact copyArtifact(Artifact artifact) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
+        Artifact retVal = new Artifact(artifact.groupId, artifact.artifactId, artifact.version, artifact.cacheDir, artifact.scope);
+        retVal.strippedVersion = artifact.strippedVersion;
+        retVal.realVersion = artifact.realVersion;
+        retVal.properties = artifact.properties;
+        retVal.repositories = artifact.repositories;
+        retVal.declaredRepositories = artifact.declaredRepositories;
+        retVal.rawDirectJarURIs = artifact.rawDirectJarURIs;
+        retVal.directJarURIs = artifact.directJarURIs;
+        retVal.jarURIs = artifact.jarURIs;
+        retVal.pomURIs = artifact.pomURIs;
+        retVal.parent = artifact.parent;
+        retVal.dependencies = artifact.dependencies;
+        return retVal.build();
+    }
 }
