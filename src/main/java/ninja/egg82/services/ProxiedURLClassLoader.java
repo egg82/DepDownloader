@@ -38,34 +38,28 @@ public class ProxiedURLClassLoader extends URLClassLoader {
 
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
-        Class<?> clazz = null;
+        // Find in local
+        try {
+            return super.findClass(name);
+        } catch (ClassNotFoundException | SecurityException ignored) { }
 
-        // Find in system first (JVM, classpath, etc)
+        // Find in parent
+        try {
+            return (Class<?>) FIND_METHOD.invoke(parent, name);
+        } catch (InvocationTargetException | IllegalAccessException ignored) { }
+
+        // Find in system (JVM, classpath, etc)
         if (system != null && !parentIsSystem) {
             try {
-                clazz = (Class<?>) FIND_METHOD.invoke(system, name);
-            } catch (IllegalAccessException | InvocationTargetException ignored) {}
+                return (Class<?>) FIND_METHOD.invoke(system, name);
+            } catch (InvocationTargetException ex) {
+                if (ex.getCause() instanceof ClassNotFoundException) {
+                    throw (ClassNotFoundException) ex.getCause();
+                }
+            } catch (IllegalAccessException ignored) { }
         }
 
-        if (clazz == null) {
-            // Not found in system (or parent is system)
-            try {
-                // Find in local
-                clazz = super.findClass(name);
-            } catch (ClassNotFoundException ignored) {
-                // Find in parent
-                try {
-                    clazz = (Class<?>) FIND_METHOD.invoke(parent, name);
-                } catch (InvocationTargetException ex) {
-                    if (ex.getCause() instanceof ClassNotFoundException) {
-                        throw (ClassNotFoundException) ex.getCause();
-                    }
-                } catch (IllegalAccessException ignored2) {}
-            }
-        }
-
-        // We are guaranteed a result here, as the "find in parent" would have thrown an exception otherwise
-        return clazz;
+        throw new ClassNotFoundException(name);
     }
 
     @Override
@@ -73,31 +67,25 @@ public class ProxiedURLClassLoader extends URLClassLoader {
         // Check if class has been loaded
         Class<?> clazz = findLoadedClass(name);
 
-        // Load system classes first (JVM, classpath, etc)
-        if (clazz == null && system != null && !parentIsSystem) {
-            try {
-                clazz = system.loadClass(name);
-            } catch (ClassNotFoundException ignored) {}
-        }
-
+        // Find in local
         if (clazz == null) {
-            // Not found in system (or parent is system)
             try {
-                // Find in local
-                clazz = findClass(name);
-            } catch (ClassNotFoundException ignored) {
-                // Find in parent
-                try {
-                    clazz = (Class<?>) FIND_METHOD.invoke(parent, name);
-                } catch (InvocationTargetException ex) {
-                    if (ex.getCause() instanceof ClassNotFoundException) {
-                        throw (ClassNotFoundException) ex.getCause();
-                    }
-                } catch (IllegalAccessException ignored2) {}
-            }
+                clazz = super.findClass(name);
+            } catch (ClassNotFoundException | SecurityException ignored) { }
         }
 
-        // We are guaranteed a result here, as the "find in parent" would have thrown an exception otherwise
+        // Load in parent
+        if (clazz == null) {
+            try {
+                clazz = parent.loadClass(name);
+            } catch (ClassNotFoundException | SecurityException ignored) { }
+        }
+
+        // Load in system (JVM, classpath, etc)
+        if (clazz == null && system != null && !parentIsSystem) {
+            clazz = system.loadClass(name);
+        }
+
         if (resolve) {
             resolveClass(clazz);
         }
@@ -106,21 +94,17 @@ public class ProxiedURLClassLoader extends URLClassLoader {
 
     @Override
     public URL getResource(String name) {
-        URL url = null;
-
-        // Find in system first (JVM, classpath, etc)
-        if (system != null && !parentIsSystem) {
-            url = system.getResource(name);
-        }
-
         // Find in local
-        if (url == null) {
-            url = findResource(name);
-        }
+        URL url = findResource(name);
 
         // Find in parent
         if (url == null) {
             url = parent.getResource(name);
+        }
+
+        // Find in system (JVM, classpath, etc)
+        if (url == null && system != null && !parentIsSystem) {
+            url = system.getResource(name);
         }
 
         return url;
@@ -130,29 +114,27 @@ public class ProxiedURLClassLoader extends URLClassLoader {
     public Enumeration<URL> getResources(String name) throws IOException {
         List<URL> urls = new ArrayList<>();
 
-        Enumeration<URL> enums = null;
-
-        // Load system first (JVM, classpath, etc)
-        if (system != null && !parentIsSystem) {
-            enums = system.getResources(name);
-        }
+        // Get local
+        Enumeration<URL> enums = findResources(name);
         if (enums != null) {
             while (enums.hasMoreElements()) {
                 urls.add(enums.nextElement());
             }
         }
 
-        // Load local
-        enums = findResources(name);
-        if (enums != null) {
-            while (enums.hasMoreElements()) {
-                urls.add(enums.nextElement());
-            }
-        }
-
-        // Load parent
+        // Get parent
         if (parent != null) {
             enums = parent.getResources(name);
+            if (enums != null) {
+                while (enums.hasMoreElements()) {
+                    urls.add(enums.nextElement());
+                }
+            }
+        }
+
+        // Get system (JVM, classpath, etc)
+        if (system != null && !parentIsSystem) {
+            enums = system.getResources(name);
             if (enums != null) {
                 while (enums.hasMoreElements()) {
                     urls.add(enums.nextElement());
