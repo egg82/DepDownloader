@@ -86,6 +86,10 @@ public class ProxiedURLClassLoader extends URLClassLoader {
             clazz = system.loadClass(name);
         }
 
+        if (clazz == null) {
+            throw new ClassNotFoundException(name);
+        }
+
         if (resolve) {
             resolveClass(clazz);
         }
