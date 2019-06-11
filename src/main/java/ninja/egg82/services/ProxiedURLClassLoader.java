@@ -21,8 +21,6 @@ public class ProxiedURLClassLoader extends URLClassLoader {
         } catch (NoSuchMethodException e) {
             throw new ExceptionInInitializerError(e);
         }
-
-        ClassLoader.registerAsParallelCapable();
     }
 
     private ClassLoader parent;
