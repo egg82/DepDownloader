@@ -161,6 +161,12 @@ public class Artifact {
             return this;
         }
 
+        public String getGroupId() { return result.groupId; }
+
+        public String getArtifactId() { return result.artifactId; }
+
+        public String getVersion() { return result.version; }
+
         public Artifact build() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
             Artifact cachedResult = cache.putIfAbsent(result.toString(), result);
             if (result.equals(cachedResult)) {

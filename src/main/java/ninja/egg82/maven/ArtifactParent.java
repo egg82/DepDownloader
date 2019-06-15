@@ -146,6 +146,12 @@ public class ArtifactParent {
             return this;
         }
 
+        public String getGroupId() { return result.groupId; }
+
+        public String getArtifactId() { return result.artifactId; }
+
+        public String getVersion() { return result.version; }
+
         public ArtifactParent build() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
             ArtifactParent cachedResult = cache.putIfAbsent(result.toString(), result);
             if (result.equals(cachedResult)) {
