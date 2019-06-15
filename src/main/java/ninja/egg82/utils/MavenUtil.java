@@ -532,7 +532,7 @@ public class MavenUtil {
 
     private static String encode(String raw) throws UnsupportedEncodingException { return URLEncoder.encode(raw, "UTF-8"); }
 
-    private static File getCachePom(Artifact artifact) {
+    public static File getCachePom(Artifact artifact) {
         return new File(artifact.getCacheDir(),
                 artifact.getGroupId().replace('.', File.separatorChar)
                         + File.separator + artifact.getArtifactId()
@@ -540,7 +540,7 @@ public class MavenUtil {
         );
     }
 
-    private static File getCachePom(ArtifactParent parent) {
+    public static File getCachePom(ArtifactParent parent) {
         return new File(parent.getCacheDir(),
                 parent.getGroupId().replace('.', File.separatorChar)
                         + File.separator + parent.getArtifactId()

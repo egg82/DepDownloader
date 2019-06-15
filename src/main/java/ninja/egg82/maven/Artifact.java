@@ -244,7 +244,7 @@ public class Artifact {
             pomURIs.add(new URI(repository + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".pom"));
         }
 
-        if (!HTTPUtil.remoteExists(HTTPUtil.toURLs(pomURIs))) {
+        if (!MavenUtil.getCachePom(this).exists() && !HTTPUtil.remoteExists(HTTPUtil.toURLs(pomURIs))) {
             // Some deps just don't exist any more. Wheee!
             properties = new HashMap<>();
             dependencies = new ArrayList<>();
