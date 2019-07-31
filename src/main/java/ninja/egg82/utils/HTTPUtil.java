@@ -43,6 +43,8 @@ public class HTTPUtil {
     public static HttpURLConnection getConnection(URL url) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setInstanceFollowRedirects(true);
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
 
         int status;
         boolean redirect;
