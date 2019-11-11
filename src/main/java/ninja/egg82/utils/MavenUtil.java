@@ -404,29 +404,11 @@ public class MavenUtil {
     }
 
     public static String getLatestVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        IOException lastEx;
-        try {
-            return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
-        } catch (IOException ex) {
-            lastEx = ex;
-        }
-        try {
-            return fetchLatestVersion(DocumentUtil.getDocument(getCachePom(artifact)));
-        } catch (IOException ignored) { }
-        throw lastEx;
+        return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
     }
 
     public static String getLatestVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        IOException lastEx;
-        try {
-            return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
-        } catch (IOException ex) {
-            lastEx = ex;
-        }
-        try {
-            return fetchLatestVersion(DocumentUtil.getDocument(getCachePom(parent)));
-        } catch (IOException ignored) { }
-        throw lastEx;
+        return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
     }
 
     private static String fetchLatestVersion(Document document) throws XPathExpressionException, SAXException {
@@ -449,29 +431,11 @@ public class MavenUtil {
     }
 
     public static String getReleaseVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        IOException lastEx;
-        try {
-            return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
-        } catch (IOException ex) {
-            lastEx = ex;
-        }
-        try {
-            return fetchReleaseVersion(DocumentUtil.getDocument(getCachePom(artifact)));
-        } catch (IOException ignored) { }
-        throw lastEx;
+        return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
     }
 
     public static String getReleaseVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        IOException lastEx;
-        try {
-            return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
-        } catch (IOException ex) {
-            lastEx = ex;
-        }
-        try {
-            return fetchReleaseVersion(DocumentUtil.getDocument(getCachePom(parent)));
-        } catch (IOException ignored) { }
-        throw lastEx;
+        return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
     }
 
     private static String fetchReleaseVersion(Document document) throws XPathExpressionException, SAXException {
@@ -494,29 +458,11 @@ public class MavenUtil {
     }
 
     public static String getSnapshotVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        IOException lastEx;
-        try {
-            return artifact.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(artifact)));
-        } catch (IOException ex) {
-            lastEx = ex;
-        }
-        try {
-            return artifact.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getCachePom(artifact)));
-        } catch (IOException ignored) { }
-        throw lastEx;
+        return artifact.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(artifact)));
     }
 
     public static String getSnapshotVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        IOException lastEx;
-        try {
-            return parent.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(parent)));
-        } catch (IOException ex) {
-            lastEx = ex;
-        }
-        try {
-            return parent.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getCachePom(parent)));
-        } catch (IOException ignored) { }
-        throw lastEx;
+        return parent.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(parent)));
     }
 
     private static String fetchSnapshotVersion(Document document) throws XPathExpressionException, SAXException {

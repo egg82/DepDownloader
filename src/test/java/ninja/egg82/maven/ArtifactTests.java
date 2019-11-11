@@ -59,6 +59,13 @@ public class ArtifactTests {
                     .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
                     .build();
         });
+
+        Assertions.assertDoesNotThrow(() -> {
+            Artifact.builder("org.mineskin", "java-client", "1.0.3-SNAPSHOT", new File(getCurrentDirectory(), "cache"))
+                    .addRepository(Repository.builder("https://repo.inventivetalent.org/content/groups/public/").build())
+                    .addRepository(Repository.builder("http://central.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
+                    .build();
+        });
     }
 
     @Test
