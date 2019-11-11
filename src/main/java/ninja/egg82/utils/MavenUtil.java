@@ -11,6 +11,7 @@ import java.util.*;
 import javax.xml.xpath.XPathExpressionException;
 import ninja.egg82.maven.Artifact;
 import ninja.egg82.maven.ArtifactParent;
+import ninja.egg82.maven.Repository;
 import ninja.egg82.maven.Scope;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -63,13 +64,13 @@ public class MavenUtil {
     public static List<Artifact> getDependencies(Artifact artifact) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
 
-        Set<String> repositories = getRepositories(artifact);
+        Set<Repository> repositories = getRepositories(artifact);
 
         List<Artifact> retVal = new ArrayList<>();
         List<Artifact.Builder> builders = fetchHardDependencies(artifact.getParent(), DocumentUtil.getDocument(pomFile), artifact.getProperties(), artifact.getCacheDir());
 
         for (Artifact.Builder builder : builders) {
-            for (String repository : repositories) {
+            for (Repository repository : repositories) {
                 builder.addRepository(repository);
             }
             retVal.add(builder.build());
@@ -87,13 +88,13 @@ public class MavenUtil {
     public static List<Artifact> getSoftDependencies(ArtifactParent parent) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(parent), HTTPUtil.toURLs(parent.getPomURIs()));
 
-        Set<String> repositories = getRepositories(parent);
+        Set<Repository> repositories = getRepositories(parent);
 
         List<Artifact> retVal = new ArrayList<>();
         List<Artifact.Builder> builders = fetchSoftDependencies(parent.getParent(), DocumentUtil.getDocument(pomFile), parent.getProperties(), parent.getCacheDir());
 
         for (Artifact.Builder builder : builders) {
-            for (String repository : repositories) {
+            for (Repository repository : repositories) {
                 builder.addRepository(repository);
             }
             retVal.add(builder.build());
@@ -104,13 +105,13 @@ public class MavenUtil {
     public static List<Artifact> getHardDependencies(ArtifactParent parent) throws URISyntaxException, IOException, XPathExpressionException, SAXException {
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(parent), HTTPUtil.toURLs(parent.getPomURIs()));
 
-        Set<String> repositories = getRepositories(parent);
+        Set<Repository> repositories = getRepositories(parent);
 
         List<Artifact> retVal = new ArrayList<>();
         List<Artifact.Builder> builders = fetchHardDependencies(parent.getParent(), DocumentUtil.getDocument(pomFile), parent.getProperties(), parent.getCacheDir());
 
         for (Artifact.Builder builder : builders) {
-            for (String repository : repositories) {
+            for (Repository repository : repositories) {
                 builder.addRepository(repository);
             }
             retVal.add(builder.build());
@@ -118,27 +119,47 @@ public class MavenUtil {
         return retVal;
     }
 
-    private static Set<String> getRepositories(Artifact artifact) {
-        Set<String> retVal = new LinkedHashSet<>(artifact.getRepositories());
+    private static Set<Repository> getRepositories(Artifact artifact) {
+        Set<Repository> retVal = new LinkedHashSet<>(artifact.getRepositories());
         retVal.addAll(artifact.getDeclaredRepositories());
         ArtifactParent p = artifact.getParent();
         while (p != null) {
             retVal.addAll(p.getDeclaredRepositories());
             p = p.getParent();
         }
-        retVal.add("http://central.maven.org/maven2/");
+        for (Repository repository : retVal) {
+            if (repository.getURL().equals("http://central.maven.org/maven2/")) {
+                return retVal;
+            }
+            for (String proxy : repository.getProxies()) {
+                if (proxy.equals("http://central.maven.org/maven2/")) {
+                    return retVal;
+                }
+            }
+        }
+        retVal.add(Repository.builder("http://central.maven.org/maven2/").build());
         return retVal;
     }
 
-    private static Set<String> getRepositories(ArtifactParent parent) {
-        Set<String> retVal = new LinkedHashSet<>(parent.getRepositories());
+    private static Set<Repository> getRepositories(ArtifactParent parent) {
+        Set<Repository> retVal = new LinkedHashSet<>(parent.getRepositories());
         retVal.addAll(parent.getDeclaredRepositories());
         ArtifactParent p = parent.getParent();
         while (p != null) {
             retVal.addAll(p.getDeclaredRepositories());
             p = p.getParent();
         }
-        retVal.add("http://central.maven.org/maven2/");
+        for (Repository repository : retVal) {
+            if (repository.getURL().equals("http://central.maven.org/maven2/")) {
+                return retVal;
+            }
+            for (String proxy : repository.getProxies()) {
+                if (proxy.equals("http://central.maven.org/maven2/")) {
+                    return retVal;
+                }
+            }
+        }
+        retVal.add(Repository.builder("http://central.maven.org/maven2/").build());
         return retVal;
     }
 
@@ -231,18 +252,18 @@ public class MavenUtil {
         return retVal;
     }
 
-    public static List<String> getDeclaredRepositories(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
+    public static List<Repository> getDeclaredRepositories(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(artifact), HTTPUtil.toURLs(artifact.getPomURIs()));
-        return fetchDeclaredRepositories(DocumentUtil.getDocument(pomFile), artifact.getParent(), artifact.getProperties());
+        return fetchDeclaredRepositories(DocumentUtil.getDocument(pomFile), artifact.getRepositories(), artifact.getParent(), artifact.getProperties());
     }
 
-    public static List<String> getDeclaredRepositories(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
+    public static List<Repository> getDeclaredRepositories(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
         File pomFile = DownloadUtil.getOrDownloadFile(getCachePom(parent), HTTPUtil.toURLs(parent.getPomURIs()));
-        return fetchDeclaredRepositories(DocumentUtil.getDocument(pomFile), parent.getParent(), parent.getProperties());
+        return fetchDeclaredRepositories(DocumentUtil.getDocument(pomFile), parent.getRepositories(), parent.getParent(), parent.getProperties());
     }
 
-    private static List<String> fetchDeclaredRepositories(Document document, ArtifactParent parent, Map<String, String> properties) throws XPathExpressionException, SAXException {
-        List<String> retVal = new ArrayList<>();
+    private static List<Repository> fetchDeclaredRepositories(Document document, Set<Repository> repositories, ArtifactParent parent, Map<String, String> properties) throws XPathExpressionException, SAXException {
+        List<Repository> retVal = new ArrayList<>();
 
         NodeList repositoryNodes = DocumentUtil.getNodesByXPath(document, "/project/repositories/repository");
         for (int i = 0; i < repositoryNodes.getLength(); i++) {
@@ -284,7 +305,26 @@ public class MavenUtil {
             if (url.charAt(url.length() - 1) != '/') {
                 url = url + "/";
             }
-            retVal.add(url);
+
+            boolean foundRepo = false;
+            for (Repository repository : repositories) {
+                if (url.equals(repository.getURL())) {
+                    foundRepo = true;
+                    retVal.add(repository);
+                }
+                if (!foundRepo) {
+                    for (String proxy : repository.getProxies()) {
+                        if (url.equals(proxy)) {
+                            foundRepo = true;
+                            retVal.add(repository);
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!foundRepo) {
+                retVal.add(Repository.builder(url).build());
+            }
         }
 
         return retVal;
@@ -297,7 +337,7 @@ public class MavenUtil {
             return null;
         }
 
-        for (String repository : artifact.getRepositories()) {
+        for (Repository repository : artifact.getRepositories()) {
             retVal.addRepository(repository);
         }
         return retVal.build();
@@ -310,7 +350,7 @@ public class MavenUtil {
             return null;
         }
 
-        for (String repository : parent.getRepositories()) {
+        for (Repository repository : parent.getRepositories()) {
             retVal.addRepository(repository);
         }
         return retVal.build();
@@ -364,11 +404,29 @@ public class MavenUtil {
     }
 
     public static String getLatestVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
+        IOException lastEx;
+        try {
+            return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
+        } catch (IOException ex) {
+            lastEx = ex;
+        }
+        try {
+            return fetchLatestVersion(DocumentUtil.getDocument(getCachePom(artifact)));
+        } catch (IOException ignored) { }
+        throw lastEx;
     }
 
     public static String getLatestVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
+        IOException lastEx;
+        try {
+            return fetchLatestVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
+        } catch (IOException ex) {
+            lastEx = ex;
+        }
+        try {
+            return fetchLatestVersion(DocumentUtil.getDocument(getCachePom(parent)));
+        } catch (IOException ignored) { }
+        throw lastEx;
     }
 
     private static String fetchLatestVersion(Document document) throws XPathExpressionException, SAXException {
@@ -391,11 +449,29 @@ public class MavenUtil {
     }
 
     public static String getReleaseVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
+        IOException lastEx;
+        try {
+            return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(artifact)));
+        } catch (IOException ex) {
+            lastEx = ex;
+        }
+        try {
+            return fetchReleaseVersion(DocumentUtil.getDocument(getCachePom(artifact)));
+        } catch (IOException ignored) { }
+        throw lastEx;
     }
 
     public static String getReleaseVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
+        IOException lastEx;
+        try {
+            return fetchReleaseVersion(DocumentUtil.getDocument(getVersionMetadataURLs(parent)));
+        } catch (IOException ex) {
+            lastEx = ex;
+        }
+        try {
+            return fetchReleaseVersion(DocumentUtil.getDocument(getCachePom(parent)));
+        } catch (IOException ignored) { }
+        throw lastEx;
     }
 
     private static String fetchReleaseVersion(Document document) throws XPathExpressionException, SAXException {
@@ -418,11 +494,29 @@ public class MavenUtil {
     }
 
     public static String getSnapshotVersion(Artifact artifact) throws IOException, XPathExpressionException, SAXException {
-        return artifact.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(artifact)));
+        IOException lastEx;
+        try {
+            return artifact.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(artifact)));
+        } catch (IOException ex) {
+            lastEx = ex;
+        }
+        try {
+            return artifact.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getCachePom(artifact)));
+        } catch (IOException ignored) { }
+        throw lastEx;
     }
 
     public static String getSnapshotVersion(ArtifactParent parent) throws IOException, XPathExpressionException, SAXException {
-        return parent.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(parent)));
+        IOException lastEx;
+        try {
+            return parent.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getArtifactMetadataURLs(parent)));
+        } catch (IOException ex) {
+            lastEx = ex;
+        }
+        try {
+            return parent.getStrippedVersion() + "-" + fetchSnapshotVersion(DocumentUtil.getDocument(getCachePom(parent)));
+        } catch (IOException ignored) { }
+        throw lastEx;
     }
 
     private static String fetchSnapshotVersion(Document document) throws XPathExpressionException, SAXException {
@@ -469,8 +563,11 @@ public class MavenUtil {
         List<URL> retVal = new ArrayList<>();
 
         String group = artifact.getGroupId().replace('.', '/');
-        for (String url : artifact.getRepositories()) {
-            retVal.add(new URL(url + group + "/" + artifact.getArtifactId() + "/maven-metadata.xml"));
+        for (Repository repository : artifact.getRepositories()) {
+            for (String proxy : repository.getProxies()) {
+                retVal.add(new URL(proxy + group + "/" + artifact.getArtifactId() + "/maven-metadata.xml"));
+            }
+            retVal.add(new URL(repository.getURL() + group + "/" + artifact.getArtifactId() + "/maven-metadata.xml"));
         }
         return retVal;
     }
@@ -479,8 +576,11 @@ public class MavenUtil {
         List<URL> retVal = new ArrayList<>();
 
         String group = parent.getGroupId().replace('.', '/');
-        for (String url : parent.getRepositories()) {
-            retVal.add(new URL(url + group + "/" + parent.getArtifactId() + "/maven-metadata.xml"));
+        for (Repository repository : parent.getRepositories()) {
+            for (String proxy : repository.getProxies()) {
+                retVal.add(new URL(proxy + group + "/" + parent.getArtifactId() + "/maven-metadata.xml"));
+            }
+            retVal.add(new URL(repository.getURL() + group + "/" + parent.getArtifactId() + "/maven-metadata.xml"));
         }
         return retVal;
     }
@@ -489,8 +589,11 @@ public class MavenUtil {
         List<URL> retVal = new ArrayList<>();
 
         String group = artifact.getGroupId().replace('.', '/');
-        for (String url : artifact.getRepositories()) {
-            retVal.add(new URL(url + group + "/" + artifact.getArtifactId() + "/" + encode(artifact.getVersion()) + "/maven-metadata.xml"));
+        for (Repository repository : artifact.getRepositories()) {
+            for (String proxy : repository.getProxies()) {
+                retVal.add(new URL(proxy + group + "/" + artifact.getArtifactId() + "/" + encode(artifact.getVersion()) + "/maven-metadata.xml"));
+            }
+            retVal.add(new URL(repository.getURL() + group + "/" + artifact.getArtifactId() + "/" + encode(artifact.getVersion()) + "/maven-metadata.xml"));
         }
         return retVal;
     }
@@ -499,8 +602,11 @@ public class MavenUtil {
         List<URL> retVal = new ArrayList<>();
 
         String group = parent.getGroupId().replace('.', '/');
-        for (String url : parent.getRepositories()) {
-            retVal.add(new URL(url + group + "/" + parent.getArtifactId() + "/" + encode(parent.getVersion()) + "/maven-metadata.xml"));
+        for (Repository repository : parent.getRepositories()) {
+            for (String proxy : repository.getProxies()) {
+                retVal.add(new URL(proxy + group + "/" + parent.getArtifactId() + "/" + encode(parent.getVersion()) + "/maven-metadata.xml"));
+            }
+            retVal.add(new URL(repository.getURL() + group + "/" + parent.getArtifactId() + "/" + encode(parent.getVersion()) + "/maven-metadata.xml"));
         }
         return retVal;
     }

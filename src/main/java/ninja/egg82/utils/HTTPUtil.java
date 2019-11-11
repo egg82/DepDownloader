@@ -77,12 +77,18 @@ public class HTTPUtil {
     public static HttpURLConnection getConnection(List<URL> urls) throws IOException {
         IOException lastEx = null;
         int lastStatus = -1;
+        boolean is404 = false;
         for (URL url : urls) {
             try {
                 HttpURLConnection conn = getConnection(url);
-                lastStatus = conn.getResponseCode();
-                if (lastStatus >= 200 && lastStatus < 300) {
+                int status = conn.getResponseCode();
+                if (status >= 200 && status < 300) {
                     return conn;
+                }
+                if (status != 404) {
+                    lastStatus = status;
+                } else {
+                    is404 = true;
                 }
             } catch (IOException ex) {
                 lastEx = ex;
@@ -92,7 +98,7 @@ public class HTTPUtil {
             throw new IOException("Could not get connection from URLs provided.", lastEx);
         }
 
-        if (lastStatus >= 400 && lastStatus < 600) {
+        if ((lastStatus == -1 && is404) || (lastStatus >= 400 && lastStatus < 600)) {
             throw new IOException("Server returned status code " + lastStatus);
         }
         throw new IOException("Could not get connection from URLs provided.");

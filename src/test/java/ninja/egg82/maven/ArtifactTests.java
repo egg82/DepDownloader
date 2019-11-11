@@ -13,7 +13,7 @@ public class ArtifactTests {
     public void testBuildArtifactComplex() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact.builder("com.google.guava", "guava", "27.1-jre", new File(getCurrentDirectory(), "cache"))
-                    .addRepository("http://central.maven.org/maven2/")
+                    .addRepository(Repository.builder("http://central.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
                     .build();
         });
     }
@@ -22,9 +22,8 @@ public class ArtifactTests {
     public void testBuildArtifactSimple() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact.builder("ninja.egg82", "service-locator", "1.0.1", new File(getCurrentDirectory(), "cache"))
-                    .addRepository("https://nexus.egg82.me/repository/egg82/")
-                    .addRepository("https://www.myget.org/F/egg82-java/maven/")
-                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .addRepository(Repository.builder("https://www.myget.org/F/egg82-java/maven/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
                     .build();
         });
     }
@@ -33,9 +32,8 @@ public class ArtifactTests {
     public void testBuildArtifactsStandard() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact webhooks = Artifact.builder("club.minnced", "discord-webhooks", "0.1.7", new File(getCurrentDirectory(), "cache"))
-                    .addRepository("https://nexus.egg82.me/repository/bintray-jcenter/")
-                    .addRepository("https://jcenter.bintray.com/")
-                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .addRepository(Repository.builder("https://jcenter.bintray.com/").addProxy("https://nexus.egg82.me/repository/bintray-jcenter/").build())
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
                     .build();
 
             for (Artifact dep : webhooks.getDependencies()) {
@@ -48,12 +46,27 @@ public class ArtifactTests {
     }
 
     @Test
+    public void testBuildArtifactOutliers() {
+        Assertions.assertDoesNotThrow(() -> {
+            Artifact.builder("mysql", "mysql-connector-java", "latest", new File(getCurrentDirectory(), "cache"))
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
+                    .build();
+        });
+
+        Assertions.assertDoesNotThrow(() -> {
+            Artifact.builder("de.slikey", "EffectLib", "6.2", new File(getCurrentDirectory(), "cache"))
+                    .addRepository(Repository.builder("http://maven.elmakers.com/repository/").addProxy("https://nexus.egg82.me/repository/elmakers/").build())
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
+                    .build();
+        });
+    }
+
+    @Test
     public void testGetDepth() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact acfPaper = Artifact.builder("co.aikar", "taskchain-bukkit", "3.7.2", new File(getCurrentDirectory(), "cache"))
-                    .addRepository("https://nexus.egg82.me/repository/aikar/")
-                    .addRepository("https://repo.aikar.co/nexus/content/groups/aikar/")
-                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .addRepository(Repository.builder("https://repo.aikar.co/nexus/content/groups/aikar/").addProxy("https://nexus.egg82.me/repository/aikar/").build())
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
                     .build();
 
             getArtifacts(acfPaper);
@@ -72,17 +85,15 @@ public class ArtifactTests {
     public void testGetSnapshot() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact acfPaper = Artifact.builder("co.aikar", "acf-paper", "0.5.0-SNAPSHOT", new File(getCurrentDirectory(), "cache"))
-                    .addRepository("https://nexus.egg82.me/repository/aikar/")
-                    .addRepository("https://repo.aikar.co/nexus/content/groups/aikar/")
-                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .addRepository(Repository.builder("https://repo.aikar.co/nexus/content/groups/aikar/").addProxy("https://nexus.egg82.me/repository/aikar/").build())
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
                     .build();
 
             System.out.println("ACF Paper version: " + acfPaper.getRealVersion());
 
             Artifact acfCore = Artifact.builder("co.aikar", "acf-core", "0.5.0-SNAPSHOT", new File(getCurrentDirectory(), "cache"))
-                    .addRepository("https://nexus.egg82.me/repository/aikar/")
-                    .addRepository("https://repo.aikar.co/nexus/content/groups/aikar/")
-                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .addRepository(Repository.builder("https://repo.aikar.co/nexus/content/groups/aikar/").addProxy("https://nexus.egg82.me/repository/aikar/").build())
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
                     .build();
 
             System.out.println("ACF Core version: " + acfCore.getRealVersion());
@@ -93,9 +104,8 @@ public class ArtifactTests {
     public void testGetLatest() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact taskchainCore = Artifact.builder("co.aikar", "taskchain-core", "latest", new File(getCurrentDirectory(), "cache"))
-                    .addRepository("https://nexus.egg82.me/repository/aikar/")
-                    .addRepository("https://repo.aikar.co/nexus/content/groups/aikar/")
-                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .addRepository(Repository.builder("https://repo.aikar.co/nexus/content/groups/aikar/").addProxy("https://nexus.egg82.me/repository/aikar/").build())
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
                     .build();
 
             System.out.println("Taskchain version: " + taskchainCore.getRealVersion());
@@ -106,9 +116,8 @@ public class ArtifactTests {
     public void testGetRelease() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact taskchainCore = Artifact.builder("co.aikar", "taskchain-core", "release", new File(getCurrentDirectory(), "cache"))
-                    .addRepository("https://nexus.egg82.me/repository/aikar/")
-                    .addRepository("https://repo.aikar.co/nexus/content/groups/aikar/")
-                    .addRepository("https://nexus.egg82.me/repository/maven-central/")
+                    .addRepository(Repository.builder("https://repo.aikar.co/nexus/content/groups/aikar/").addProxy("https://nexus.egg82.me/repository/aikar/").build())
+                    .addRepository(Repository.builder("https://nexus.egg82.me/repository/maven-central/").addProxy("https://nexus.egg82.me/repository/egg82/").build())
                     .build();
 
             System.out.println("Taskchain version: " + taskchainCore.getRealVersion());

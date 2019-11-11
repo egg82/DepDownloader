@@ -48,11 +48,11 @@ public class Artifact {
     private Map<String, String> properties = null;
     public Map<String, String> getProperties() { return Collections.unmodifiableMap(properties); }
 
-    private Set<String> repositories = new LinkedHashSet<>();
-    public Set<String> getRepositories() { return Collections.unmodifiableSet(repositories); }
+    private Set<Repository> repositories = new LinkedHashSet<>();
+    public Set<Repository> getRepositories() { return Collections.unmodifiableSet(repositories); }
 
-    private Set<String> declaredRepositories = new LinkedHashSet<>();
-    public Set<String> getDeclaredRepositories() { return Collections.unmodifiableSet(declaredRepositories); }
+    private Set<Repository> declaredRepositories = new LinkedHashSet<>();
+    public Set<Repository> getDeclaredRepositories() { return Collections.unmodifiableSet(declaredRepositories); }
 
     private Set<String> rawDirectJarURIs = new LinkedHashSet<>();
     public Set<String> getRawDirectJarURIs() { return Collections.unmodifiableSet(rawDirectJarURIs); }
@@ -139,16 +139,12 @@ public class Artifact {
             result = new Artifact(groupId, artifactId, version, cacheDir, scope);
         }
 
-        public Builder addRepository(String url) {
-            if (url == null || url.isEmpty()) {
-                throw new IllegalArgumentException("url cannot be null or empty.");
+        public Builder addRepository(Repository repository) {
+            if (repository == null) {
+                throw new IllegalArgumentException("repository cannot be null.");
             }
 
-            if (url.charAt(url.length() - 1) != '/') {
-                url = url + "/";
-            }
-
-            result.repositories.add(url);
+            result.repositories.add(repository);
             return this;
         }
 
@@ -239,9 +235,13 @@ public class Artifact {
         jarURIs.addAll(directJarURIs);
 
         String group = groupId.replace('.', '/');
-        for (String repository : repositories) {
-            jarURIs.add(new URI(repository + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".jar"));
-            pomURIs.add(new URI(repository + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".pom"));
+        for (Repository repository : repositories) {
+            for (String proxy : repository.getProxies()) {
+                jarURIs.add(new URI(proxy + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".jar"));
+                pomURIs.add(new URI(proxy + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".pom"));
+            }
+            jarURIs.add(new URI(repository.getURL() + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".jar"));
+            pomURIs.add(new URI(repository.getURL() + group + "/" + artifactId + "/" + encode(version) + "/" + artifactId + "-" + encode(realVersion) + ".pom"));
         }
 
         if (!MavenUtil.getCachePom(this).exists() && !HTTPUtil.remoteExists(HTTPUtil.toURLs(pomURIs))) {
