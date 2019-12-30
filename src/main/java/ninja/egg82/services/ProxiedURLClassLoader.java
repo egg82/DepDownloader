@@ -65,10 +65,11 @@ public class ProxiedURLClassLoader extends URLClassLoader {
         // Check if class has been loaded
         Class<?> clazz = findLoadedClass(name);
 
-        // Find in local
+        // Load in local
         if (clazz == null) {
             try {
-                clazz = super.findClass(name);
+                clazz = super.loadClass(name, resolve);
+                resolve = false;
             } catch (ClassNotFoundException | SecurityException ignored) { }
         }
 
