@@ -210,7 +210,13 @@ public class Artifact {
 
     private Artifact build() throws URISyntaxException, IOException, XPathExpressionException, SAXException {
         if (snapshot) {
-            realVersion = MavenUtil.getSnapshotVersion(this);
+            String v;
+            try {
+                v = MavenUtil.getSnapshotVersion(this);
+            } catch (IOException | XPathExpressionException | SAXException ignored) { // Hack, sometimes you get "fake" SNAPSHOT versions
+                v = version;
+            }
+            realVersion = v;
         }
         if (release) {
             String v = MavenUtil.getReleaseVersion(this);

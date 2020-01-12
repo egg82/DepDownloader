@@ -187,7 +187,7 @@ public class ArtifactParent {
             String v;
             try {
                 v = MavenUtil.getSnapshotVersion(this);
-            } catch (SAXException ignored) {
+            } catch (IOException | XPathExpressionException | SAXException ignored) { // Hack, sometimes you get "fake" SNAPSHOT versions
                 // Some parent artifacts don't have a "last updated" attached to them.
                 v = version;
             }

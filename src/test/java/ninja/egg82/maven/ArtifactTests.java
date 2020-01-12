@@ -46,6 +46,16 @@ public class ArtifactTests {
     }
 
     @Test
+    public void testBuildArtifactFakeSnapshot() {
+        Assertions.assertDoesNotThrow(() -> {
+            Artifact.builder("me.gong", "mcleaks-api", "1.9.5-SNAPSHOT", new File(getCurrentDirectory(), "cache"))
+                    .addRepository(Repository.builder("https://nexus.wesjd.net/repository/thirdparty/").addProxy("https://nexus.egg82.me/repository/wesjd/").build())
+                    .addRepository(Repository.builder("http://central.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
+                    .build();
+        });
+    }
+
+    @Test
     public void testBuildArtifactOutliers() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact.builder("mysql", "mysql-connector-java", "latest", new File(getCurrentDirectory(), "cache"))
