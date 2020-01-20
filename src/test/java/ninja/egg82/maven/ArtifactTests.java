@@ -13,7 +13,7 @@ public class ArtifactTests {
     public void testBuildArtifactComplex() {
         Assertions.assertDoesNotThrow(() -> {
             Artifact.builder("com.google.guava", "guava", "27.1-jre", new File(getCurrentDirectory(), "cache"))
-                    .addRepository(Repository.builder("http://central.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
+                    .addRepository(Repository.builder("https://repo1.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
                     .build();
         });
     }
@@ -50,7 +50,7 @@ public class ArtifactTests {
         Assertions.assertDoesNotThrow(() -> {
             Artifact.builder("me.gong", "mcleaks-api", "1.9.5-SNAPSHOT", new File(getCurrentDirectory(), "cache"))
                     .addRepository(Repository.builder("https://nexus.wesjd.net/repository/thirdparty/").addProxy("https://nexus.egg82.me/repository/wesjd/").build())
-                    .addRepository(Repository.builder("http://central.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
+                    .addRepository(Repository.builder("https://repo1.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
                     .build();
         });
     }
@@ -73,7 +73,7 @@ public class ArtifactTests {
         Assertions.assertDoesNotThrow(() -> {
             Artifact.builder("org.mineskin", "java-client", "1.0.3-SNAPSHOT", new File(getCurrentDirectory(), "cache"))
                     .addRepository(Repository.builder("https://repo.inventivetalent.org/content/groups/public/").build())
-                    .addRepository(Repository.builder("http://central.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
+                    .addRepository(Repository.builder("https://repo1.maven.org/maven2/").addProxy("https://nexus.egg82.me/repository/maven-central/").build())
                     .build();
         });
     }

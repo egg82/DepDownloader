@@ -128,16 +128,16 @@ public class MavenUtil {
             p = p.getParent();
         }
         for (Repository repository : retVal) {
-            if (repository.getURL().equals("http://central.maven.org/maven2/")) {
+            if (repository.getURL().equals("https://repo1.maven.org/maven2/")) {
                 return retVal;
             }
             for (String proxy : repository.getProxies()) {
-                if (proxy.equals("http://central.maven.org/maven2/")) {
+                if (proxy.equals("https://repo1.maven.org/maven2/")) {
                     return retVal;
                 }
             }
         }
-        retVal.add(Repository.builder("http://central.maven.org/maven2/").build());
+        retVal.add(Repository.builder("https://repo1.maven.org/maven2/").build());
         return retVal;
     }
 
@@ -150,16 +150,16 @@ public class MavenUtil {
             p = p.getParent();
         }
         for (Repository repository : retVal) {
-            if (repository.getURL().equals("http://central.maven.org/maven2/")) {
+            if (repository.getURL().equals("https://repo1.maven.org/maven2/")) {
                 return retVal;
             }
             for (String proxy : repository.getProxies()) {
-                if (proxy.equals("http://central.maven.org/maven2/")) {
+                if (proxy.equals("https://repo1.maven.org/maven2/")) {
                     return retVal;
                 }
             }
         }
-        retVal.add(Repository.builder("http://central.maven.org/maven2/").build());
+        retVal.add(Repository.builder("https://repo1.maven.org/maven2/").build());
         return retVal;
     }
 
