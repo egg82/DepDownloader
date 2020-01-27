@@ -16,7 +16,7 @@ public class ProxiedURLClassLoader extends URLClassLoader {
 
     static {
         try {
-            FIND_METHOD = URLClassLoader.class.getDeclaredMethod("findClass", String.class);
+            FIND_METHOD = ClassLoader.class.getDeclaredMethod("findClass", String.class);
             FIND_METHOD.setAccessible(true);
         } catch (NoSuchMethodException e) {
             throw new ExceptionInInitializerError(e);
