@@ -6,10 +6,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
+import java.util.regex.Pattern;
 
 public class ProxiedURLClassLoader extends URLClassLoader {
     private static final Method FIND_METHOD;
@@ -21,11 +19,28 @@ public class ProxiedURLClassLoader extends URLClassLoader {
         } catch (NoSuchMethodException e) {
             throw new ExceptionInInitializerError(e);
         }
+
+        registerAsParallelCapable();
     }
 
     private ClassLoader parent;
     private ClassLoader system;
     private boolean parentIsSystem;
+    private final Set<Pattern> excludedPatterns = new HashSet<>();
+
+    public ProxiedURLClassLoader(ClassLoader parent, String[] excludedPatterns) {
+        this(parent);
+        for (String pattern : excludedPatterns) {
+            this.excludedPatterns.add(Pattern.compile(pattern));
+        }
+        this.excludedPatterns.remove(null);
+    }
+
+    public ProxiedURLClassLoader(ClassLoader parent, Pattern[] excludedPatterns) {
+        this(parent);
+        this.excludedPatterns.addAll(Arrays.asList(excludedPatterns));
+        this.excludedPatterns.remove(null);
+    }
 
     public ProxiedURLClassLoader(ClassLoader parent) {
         super(new URL[0]);
@@ -36,10 +51,12 @@ public class ProxiedURLClassLoader extends URLClassLoader {
 
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
-        // Find in local
-        try {
-            return super.findClass(name);
-        } catch (ClassNotFoundException | SecurityException ignored) { }
+        if (!isExcluded(name)) {
+            // Find in local
+            try {
+                return super.findClass(name);
+            } catch (ClassNotFoundException | SecurityException ignored) { }
+        }
 
         // Find in parent
         try {
@@ -62,37 +79,49 @@ public class ProxiedURLClassLoader extends URLClassLoader {
 
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-        // Check if class has been loaded
-        Class<?> clazz = findLoadedClass(name);
+        synchronized (getClassLoadingLock(name)) {
+            // Check if class has been loaded
+            Class<?> clazz = findLoadedClass(name);
 
-        // Load in local
-        if (clazz == null) {
-            try {
-                clazz = super.loadClass(name, resolve);
-                resolve = false;
-            } catch (ClassNotFoundException | SecurityException ignored) { }
-        }
+            // Load in local
+            if (clazz == null && !isExcluded(name)) {
+                try {
+                    clazz = super.findClass(name);
+                } catch (ClassNotFoundException | SecurityException ignored) { }
+            }
 
-        // Load in parent
-        if (clazz == null) {
-            try {
-                clazz = parent.loadClass(name);
-            } catch (ClassNotFoundException | SecurityException ignored) { }
-        }
+            // Load in parent
+            if (clazz == null) {
+                try {
+                    clazz = parent.loadClass(name);
+                } catch (ClassNotFoundException | SecurityException ignored) { }
+            }
 
-        // Load in system (JVM, classpath, etc)
-        if (clazz == null && system != null && !parentIsSystem) {
-            clazz = system.loadClass(name);
-        }
+            // Load in system (JVM, classpath, etc)
+            if (clazz == null && system != null && !parentIsSystem) {
+                clazz = system.loadClass(name); // We want exceptions to be thrown, here. No try/catch
+            }
 
-        if (clazz == null) {
-            throw new ClassNotFoundException(name);
-        }
+            if (clazz == null) {
+                throw new ClassNotFoundException(name);
+            }
 
-        if (resolve) {
-            resolveClass(clazz);
+            if (resolve) {
+                resolveClass(clazz);
+            }
+            return clazz;
         }
-        return clazz;
+    }
+
+    private boolean isExcluded(String name) {
+        if (name != null) {
+            for (Pattern p : excludedPatterns) {
+                if (p.matcher(name).matches()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
