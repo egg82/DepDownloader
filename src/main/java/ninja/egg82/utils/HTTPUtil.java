@@ -82,7 +82,7 @@ public class HTTPUtil {
             try {
                 HttpURLConnection conn = getConnection(url);
                 int status = conn.getResponseCode();
-                if (status >= 200 && status < 300) {
+                if ((status >= 200 && status < 300) || status == 304) {
                     return conn;
                 }
                 if (status != 404) {
@@ -109,7 +109,7 @@ public class HTTPUtil {
             try {
                 HttpURLConnection conn = getConnection(url);
                 int status = conn.getResponseCode();
-                if (status >= 200 && status < 300) {
+                if ((status >= 200 && status < 300) || status == 304) {
                     return true;
                 }
             } catch (IOException ignored) { }
