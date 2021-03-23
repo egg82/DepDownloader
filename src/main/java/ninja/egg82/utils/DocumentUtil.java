@@ -65,7 +65,7 @@ public class DocumentUtil {
         }
     }
     
-    pubic static synchronized void clearDocumentCache() {
+    public static synchronized void clearDocumentCache() {
         documentCache.clear();
     }
 }
