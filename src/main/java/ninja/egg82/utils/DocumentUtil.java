@@ -64,4 +64,8 @@ public class DocumentUtil {
             throw new IOException("Could not convert URL to URI.", ex);
         }
     }
+    
+    public static synchronized void clearDocumentCache() {
+        documentCache.clear();
+    }
 }
